@@ -1400,6 +1400,8 @@ if (finalStatusCode === 2 && result.rowsAffected[0] > 0) {
       tableNo
     });
 
+    console.log("Socket Exists:", !!io);
+
     io.emit("qr_customer_entered", {
         orderId,
         tableNo,
