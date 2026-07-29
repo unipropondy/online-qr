@@ -1394,6 +1394,13 @@ const tableNo = tableResult.recordset[0]?.Tableno || "";
 if (finalStatusCode === 2 && result.rowsAffected[0] > 0) {
     const io = req.app.get("io");
 
+    console.log("🔥 Emitting qr_customer_entered");
+console.log({
+  orderId: finalOrderId,
+  tableId: cleanId,
+  tableNo
+});
+
     io.emit("qr_customer_entered", {
         orderId,
         tableNo,
