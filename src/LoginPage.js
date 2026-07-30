@@ -108,6 +108,27 @@ export default function LoginPage({ onLoginSuccess }) {
     setShowConfirmPass(false);
   };
 
+  const assignTakeawayTable = async () => {
+    const res = await fetch(`${API}/order/assign-takeaway-table`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const tableData = await res.json();
+
+    if (!tableData.success) {
+      throw new Error(tableData.message || "Unable to assign a new table.");
+    }
+
+    localStorage.setItem("tableId", tableData.tableId);
+    localStorage.setItem("tableNo", tableData.tableNumber);
+    localStorage.setItem("orderId", tableData.orderId);
+
+    return tableData;
+  };
+
   /* ── Sign In ─────────────────────────────────── */
   const handleSignIn = async (e) => {
     e.preventDefault();
@@ -130,28 +151,14 @@ export default function LoginPage({ onLoginSuccess }) {
       const data = await res.json();
       if (data.success) {
         console.log("LOGIN RESPONSE:", data);
-        const tableRes = await fetch(`${API}/order/assign-takeaway-table`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
 
-        console.log("STATUS:", tableRes.status);
-
-        const tableData = await tableRes.json();
-
-        console.log("TABLE RESPONSE:", tableData);
-
-        if (!tableData.success) {
-          setError(tableData.message);
+        try {
+          await assignTakeawayTable();
+        } catch (tableError) {
+          setError(tableError.message || "Unable to assign a new table.");
           setLoading(false);
           return;
         }
-
-        localStorage.setItem("tableId", tableData.tableId);
-        localStorage.setItem("tableNo", tableData.tableNumber);
-        localStorage.setItem("orderId", tableData.orderId);
 
         localStorage.setItem("isLoggedIn", "true");
         localStorage.setItem("qr_pos_user", JSON.stringify(data.user));
@@ -220,6 +227,14 @@ export default function LoginPage({ onLoginSuccess }) {
       console.log("LOGIN RESPONSE:", data);
       if (data.success) {
         localStorage.setItem("qr_pos_user", JSON.stringify(data.user));
+
+        try {
+          await assignTakeawayTable();
+        } catch (tableError) {
+          setError(tableError.message || "Unable to assign a new table.");
+          setLoading(false);
+          return;
+        }
 
         if (data.user?.Promocode && data.user.Promocode.trim() !== "") {
 
@@ -365,21 +380,23 @@ export default function LoginPage({ onLoginSuccess }) {
               Don't have an account?{" "}
               <button
                 type="button"
-                onClick={() => {
-                  const params = new URLSearchParams(window.location.search);
-
-                  const tableId = params.get("tableId");
-                  const table = params.get("table");
-
-                  localStorage.setItem("tableId", tableId);
-                  localStorage.setItem("tableNo", table);
-                  const guestUser = { FullName: "Guest", UserId: "guest", UserName: "guest" };
-                  localStorage.setItem("isLoggedIn", "true");
-                  localStorage.setItem("qr_pos_user", JSON.stringify(guestUser));
-                  if (onLoginSuccess) {
-                    onLoginSuccess(guestUser);
-                  } else {
-                    window.location.reload();
+                onClick={async () => {
+                  setError("");
+                  setLoading(true);
+                  try {
+                    await assignTakeawayTable();
+                    const guestUser = { FullName: "Guest", UserId: "guest", UserName: "guest" };
+                    localStorage.setItem("isLoggedIn", "true");
+                    localStorage.setItem("qr_pos_user", JSON.stringify(guestUser));
+                    if (onLoginSuccess) {
+                      onLoginSuccess(guestUser);
+                    } else {
+                      window.location.reload();
+                    }
+                  } catch (tableError) {
+                    setError(tableError.message || "Unable to assign a new table.");
+                  } finally {
+                    setLoading(false);
                   }
                 }}
               >
@@ -544,8 +561,16 @@ export default function LoginPage({ onLoginSuccess }) {
             </div>
             <button
               className="login-submit-btn"
-              onClick={() => {
+              onClick={async () => {
                 console.log("SIGNUP USER:", signedUpUser);
+                try {
+                  await assignTakeawayTable();
+                } catch (tableError) {
+                  setError(tableError.message || "Unable to assign a new table.");
+                  setShowGiftModal(false);
+                  return;
+                }
+
                 // Login session create
                 localStorage.setItem("isLoggedIn", "true");
                 localStorage.setItem("qr_pos_user", JSON.stringify(signedUpUser));
@@ -557,11 +582,6 @@ export default function LoginPage({ onLoginSuccess }) {
                   localStorage.removeItem("promoCode");
                   localStorage.removeItem("promoAmount");
                 }
-
-                // QR table details save
-                const params = new URLSearchParams(window.location.search);
-                localStorage.setItem("tableId", params.get("tableId"));
-                localStorage.setItem("tableNo", params.get("table"));
 
                 // Gift popup close
                 setShowGiftModal(false);

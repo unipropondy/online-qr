@@ -1639,7 +1639,7 @@ function App() {
     return <div>Loading...</div>;
   }
 
-  if (enableLogin && !isLoggedIn) {
+  if (!isLoggedIn) {
     return (
       <LoginPage
         onLoginSuccess={(user) => {
