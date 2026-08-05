@@ -263,10 +263,11 @@ async function generateAndQueueKOTs(orderId) {
       `);
     
     if (orderRes.recordset.length === 0) {
-        console.log(`[generateAndQueueKOTs] Order ${orderId} not found.`);
+        console.log(`[generateAndQueueKOTs] EARLY EXIT: Order '${orderId}' not found in RestaurantOrderCur.`);
         return;
     }
     const orderHeader = orderRes.recordset[0];
+    console.log(`[generateAndQueueKOTs] Order found: ${orderHeader.OrderNumber} (TableNo: ${orderHeader.tableNo})`);
 
     // 2. Load Items & Resolve Printer
     const itemsRes = await pool.request()
@@ -279,7 +280,7 @@ async function generateAndQueueKOTs(orderId) {
           ISNULL(ckt.KitchenTypeName, cat.CategoryName) as KitchenTypeName,
           pm.PrinterName,
           pm.PrinterPath as PrinterIP,
-          pm.IsEnabled as IsPrinterEnabled
+          pm.IsActive as IsPrinterEnabled
         FROM RestaurantOrderDetailCur d 
         JOIN RestaurantOrderCur h ON d.OrderId = h.OrderId 
         LEFT JOIN DishMaster dish ON d.DishId = dish.DishId
@@ -288,12 +289,16 @@ async function generateAndQueueKOTs(orderId) {
         LEFT JOIN CategoryKitchenType ckt ON dgm.CategoryId = ckt.CategoryId
         LEFT JOIN PrintMaster pm ON CAST(ckt.KitchenTypeCode AS VARCHAR(50)) = CAST(pm.KitchenTypeValue AS VARCHAR(50)) AND pm.PrinterType = 2
         WHERE h.OrderNumber = @orderNo
-        AND d.StatusCode = 1
+        AND d.StatusCode IN (1, 2)
       `);
 
     const items = itemsRes.recordset;
+    console.log(`[generateAndQueueKOTs] Items loaded: ${items.length} item(s) with StatusCode IN (1,2)`);
+    items.forEach((item, idx) => {
+        console.log(`  [item ${idx + 1}] name='${item.name}' PrinterName='${item.PrinterName}' PrinterIP='${item.PrinterIP}' IsPrinterEnabled=${item.IsPrinterEnabled} StatusCode (not in query result, but matched IN 1,2)`);
+    });
     if (items.length === 0) {
-        console.log(`[generateAndQueueKOTs] No valid items found for order ${orderId}.`);
+        console.log(`[generateAndQueueKOTs] EARLY EXIT: No items with StatusCode IN (1,2) for order '${orderId}'.`);
         return;
     }
 
@@ -315,11 +320,13 @@ async function generateAndQueueKOTs(orderId) {
     const printerGroups = {};
     items.forEach(item => {
         if (item.IsPrinterEnabled === 0 || item.IsPrinterEnabled === false) {
-            console.log(`[generateAndQueueKOTs] Skipping item ${item.name} because kitchen printer is disabled.`);
+            console.log(`[generateAndQueueKOTs] SKIPPED item '${item.name}': IsPrinterEnabled=${item.IsPrinterEnabled}`);
             return;
         }
         const pName = item.PrinterName || 'Kitchen Printer';
-        const ip = item.PrinterIP || fallbackKitchenIp; 
+        const ip = item.PrinterIP || fallbackKitchenIp;
+        if (!item.PrinterName) console.log(`[generateAndQueueKOTs] WARNING: item '${item.name}' has no PrinterName → using fallback '${pName}'`);
+        if (!item.PrinterIP)   console.log(`[generateAndQueueKOTs] WARNING: item '${item.name}' has no PrinterIP → using fallback '${ip}'`);
         
         if (!printerGroups[pName]) {
             printerGroups[pName] = {
@@ -330,9 +337,16 @@ async function generateAndQueueKOTs(orderId) {
         }
         printerGroups[pName].items.push(item);
     });
+    const groupKeys = Object.keys(printerGroups);
+    console.log(`[generateAndQueueKOTs] Printer groups formed: [${groupKeys.join(', ')}]`);
+    if (groupKeys.length === 0) {
+        console.log(`[generateAndQueueKOTs] EARLY EXIT: All items were skipped (IsPrinterEnabled=0). Nothing to queue.`);
+        return;
+    }
 
     // 4. Generate Thermal Content & Insert into PrintJobQueue
     for (const [pName, group] of Object.entries(printerGroups)) {
+        let ip;
         try {
             const orderData = {
                 orderId: orderHeader.OrderId,
@@ -343,8 +357,10 @@ async function generateAndQueueKOTs(orderId) {
             };
 
             const thermalText = formatKOTThermalText(orderData, group.items, "NEW_ORDER");
-            const ip = group.printerIp;
+            ip = group.printerIp;
             const storeId = "STORE_001"; // Consistent with UniversalPrinter.js
+
+            console.log(`[generateAndQueueKOTs] Processing group: Printer='${group.printerName}' IP='${ip}' Items=${group.items.length}`);
 
             // Duplicate Check: See if a PENDING/PROCESSING job already exists for this PrinterName and Order No
             const dupCheck = await pool.request()
@@ -359,11 +375,12 @@ async function generateAndQueueKOTs(orderId) {
                 `);
 
             if (dupCheck.recordset.length > 0) {
-                console.log(`[generateAndQueueKOTs] Skip: Duplicate job found for Order ${orderHeader.OrderNumber}, Printer ${group.printerName} (JobId: ${dupCheck.recordset[0].JobId})`);
+                console.log(`[generateAndQueueKOTs] SKIP duplicate: Order=${orderHeader.OrderNumber} Printer=${group.printerName} ExistingJobId=${dupCheck.recordset[0].JobId}`);
                 continue;
             }
 
             const jobId = crypto.randomUUID();
+            console.log(`[generateAndQueueKOTs] Inserting PrintJobQueue: JobId=${jobId} Printer=${group.printerName} IP=${ip} ContentLen=${thermalText.length}`);
 
             await pool.request()
                 .input('JobId', sql.UniqueIdentifier, jobId)
@@ -376,14 +393,16 @@ async function generateAndQueueKOTs(orderId) {
                     INSERT INTO PrintJobQueue (JobId, StoreId, PrinterName, PrinterIp, PrinterPort, Content, Status, CreatedOn, Attempts)
                     VALUES (@JobId, @StoreId, @PrinterName, @PrinterIp, @PrinterPort, @Content, 'PENDING', GETDATE(), 0)
                 `);
-            console.log(`[generateAndQueueKOTs] Queued KOT job ${jobId} for IP ${ip}`);
+            console.log(`[generateAndQueueKOTs] INSERT SUCCESS: KOT job ${jobId} queued for IP ${ip}`);
 
         } catch (innerErr) {
             console.error("\n================ KOT QUEUE ERROR ================");
-            console.error(`OrderId: ${orderHeader?.OrderNumber || orderId}`);
-            console.error(`Printer: ${group?.printerName || 'Unknown'}`);
-            console.error(`IP: ${ip}`);
-            console.error(`Error: ${innerErr.message}`);
+            console.error(`Order   : ${orderHeader?.OrderNumber || orderId}`);
+            console.error(`Printer : ${group?.printerName || 'Unknown'}`);
+            console.error(`IP      : ${ip || group?.printerIp || 'Unknown'}`);
+            console.error(`StoreId : STORE_001`);
+            console.error(`Error   : ${innerErr.message}`);
+            console.error(innerErr.stack);
             console.error("=================================================\n");
         }
     }
@@ -445,8 +464,9 @@ async function generateAndQueueKOTs(orderId) {
 
   } catch (err) {
       console.error("\n================ KOT QUEUE FATAL ERROR ================");
-      console.error(`OrderId: ${orderId}`);
-      console.error(`Error: ${err.message}`);
+      console.error(`OrderId : ${orderId}`);
+      console.error(`Error   : ${err.message}`);
+      console.error(err.stack);
       console.error("=======================================================\n");
   }
 }

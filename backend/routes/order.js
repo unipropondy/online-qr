@@ -1409,6 +1409,10 @@ router.post("/mark-sent", async (req, res) => {
   try {
     const { orderId } = req.body;
 
+    console.log(`\n======================================================`);
+    console.log(`[mark-sent] Called for orderId: '${orderId}'`);
+    console.log(`======================================================`);
+
     const pool = await poolPromise;
 
     const appSettings = await pool.request().query(`
@@ -1417,18 +1421,22 @@ router.post("/mark-sent", async (req, res) => {
     `);
 
     const enableKotQr = Number(appSettings.recordset[0]?.Enablekotqr || 0);
-
     const finalStatusCode = enableKotQr === 1 ? 2 : 1;
 
-    console.log("Enablekotqr =", enableKotQr);
-    console.log("Final Status =", finalStatusCode);
+    console.log(`[mark-sent] Enablekotqr = ${enableKotQr}`);
+    console.log(`[mark-sent] finalStatusCode = ${finalStatusCode}`);
 
     if (enableKotQr === 1) {
+      console.log(`[mark-sent] KOT enabled → calling generateAndQueueKOTs('${orderId}')`);
       try {
         await generateAndQueueKOTs(orderId);
+        console.log(`[mark-sent] generateAndQueueKOTs completed`);
       } catch (err) {
-        console.error("Failed to queue KOT for mark-sent:", err);
+        console.error(`[mark-sent] generateAndQueueKOTs threw exception: ${err.message}`);
+        console.error(err.stack);
       }
+    } else {
+      console.log(`[mark-sent] KOT disabled (Enablekotqr=${enableKotQr}), skipping generateAndQueueKOTs`);
     }
 
     const result = await pool.request()
