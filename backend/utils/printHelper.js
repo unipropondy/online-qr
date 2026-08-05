@@ -289,16 +289,16 @@ async function generateAndQueueKOTs(orderId) {
         LEFT JOIN CategoryKitchenType ckt ON dgm.CategoryId = ckt.CategoryId
         LEFT JOIN PrintMaster pm ON CAST(ckt.KitchenTypeCode AS VARCHAR(50)) = CAST(pm.KitchenTypeValue AS VARCHAR(50)) AND pm.PrinterType = 2
         WHERE h.OrderNumber = @orderNo
-        AND d.StatusCode IN (1, 2)
+        AND d.StatusCode = 1
       `);
 
     const items = itemsRes.recordset;
-    console.log(`[generateAndQueueKOTs] Items loaded: ${items.length} item(s) with StatusCode IN (1,2)`);
+    console.log(`[generateAndQueueKOTs] Items loaded: ${items.length} item(s) with StatusCode = 1`);
     items.forEach((item, idx) => {
-        console.log(`  [item ${idx + 1}] name='${item.name}' PrinterName='${item.PrinterName}' PrinterIP='${item.PrinterIP}' IsPrinterEnabled=${item.IsPrinterEnabled} StatusCode (not in query result, but matched IN 1,2)`);
+        console.log(`  [item ${idx + 1}] name='${item.name}' PrinterName='${item.PrinterName}' PrinterIP='${item.PrinterIP}' IsPrinterEnabled=${item.IsPrinterEnabled} StatusCode=1`);
     });
     if (items.length === 0) {
-        console.log(`[generateAndQueueKOTs] EARLY EXIT: No items with StatusCode IN (1,2) for order '${orderId}'.`);
+        console.log(`[generateAndQueueKOTs] EARLY EXIT: No items with StatusCode=1 for order '${orderId}'.`);
         return;
     }
 
@@ -356,28 +356,37 @@ async function generateAndQueueKOTs(orderId) {
                 kitchenName: group.printerName
             };
 
-            const thermalText = formatKOTThermalText(orderData, group.items, "NEW_ORDER");
-            ip = group.printerIp;
-            const storeId = "STORE_001"; // Consistent with UniversalPrinter.js
-
-            console.log(`[generateAndQueueKOTs] Processing group: Printer='${group.printerName}' IP='${ip}' Items=${group.items.length}`);
-
-            // Duplicate Check: See if a PENDING/PROCESSING job already exists for this PrinterName and Order No
             const dupCheck = await pool.request()
                 .input('PrinterName', sql.NVarChar(100), group.printerName)
                 .input('SearchText', sql.NVarChar(100), `%Order #: ${orderHeader.OrderNumber}%`)
                 .query(`
-                    SELECT TOP 1 JobId 
+                    SELECT JobId, Status 
                     FROM PrintJobQueue 
                     WHERE PrinterName = @PrinterName
-                      AND Status IN ('PENDING', 'PROCESSING') 
                       AND Content LIKE @SearchText
                 `);
 
+            let kotType = "NEW_ORDER";
+            let hasPending = false;
+            
             if (dupCheck.recordset.length > 0) {
-                console.log(`[generateAndQueueKOTs] SKIP duplicate: Order=${orderHeader.OrderNumber} Printer=${group.printerName} ExistingJobId=${dupCheck.recordset[0].JobId}`);
+                // Check if there is ANY pending/processing job for this printer and order
+                hasPending = dupCheck.recordset.some(r => r.Status === 'PENDING' || r.Status === 'PROCESSING');
+                
+                // If it already exists in the queue (even if completed), it's an additional order for this kitchen
+                kotType = "ADDITIONAL";
+            }
+
+            if (hasPending) {
+                console.log(`[generateAndQueueKOTs] SKIP duplicate: Order=${orderHeader.OrderNumber} Printer=${group.printerName} already has PENDING/PROCESSING job`);
                 continue;
             }
+
+            const thermalText = formatKOTThermalText(orderData, group.items, kotType);
+            ip = group.printerIp;
+            const storeId = "STORE_001"; // Consistent with UniversalPrinter.js
+
+            console.log(`[generateAndQueueKOTs] Processing group: Printer='${group.printerName}' IP='${ip}' Items=${group.items.length} Type=${kotType}`);
 
             const jobId = crypto.randomUUID();
             console.log(`[generateAndQueueKOTs] Inserting PrintJobQueue: JobId=${jobId} Printer=${group.printerName} IP=${ip} ContentLen=${thermalText.length}`);
