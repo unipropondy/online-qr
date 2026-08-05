@@ -21,7 +21,7 @@ function App() {
   const actionRef = useRef(""); // "INSERT", "UPDATE", "DELETE"
   const pendingSaveRef = useRef(null); // tracks in-flight saveCartToBackend promise
   const currentOrderIdRef = useRef(null); // always holds the latest orderId synchronously
-  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem("isLoggedIn") === "true");
+  const [isLoggedIn, setIsLoggedIn] = useState(() => sessionStorage.getItem("isLoggedIn") === "true");
 
   const API = `${BASE_URL}/api`;
   const [search, setSearch] = useState("");
@@ -39,6 +39,8 @@ function App() {
   const [categories, setCategories] = useState([]);
   const [groups, setGroups] = useState([]);
   const [dishes, setDishes] = useState([]);
+  // Cache: DishId → true (has modifiers) | false (no modifiers) | undefined (loading)
+  const [dishModifiersCache, setDishModifiersCache] = useState({});
 
   const [activeCategory, setActiveCategory] = useState(null);
   const [activeGroup, setActiveGroup] = useState(null);
@@ -67,6 +69,37 @@ function App() {
   const [upiUpiId, setUpiUpiId] = useState('');
   const [tempPaynowUpiId, setTempPaynowUpiId] = useState('');
   const [tempUpiUpiId, setTempUpiUpiId] = useState('');
+  const DEFAULT_THEME_COLOR = "#f97316";
+  const THEME_COLOR_OPTIONS = ["#f97316", "#3b82f6", "#10b981", "#8b5cf6", "#ef4444", "#ec4899"];
+  const [themeColor, setThemeColor] = useState(() => localStorage.getItem("themeColor") || DEFAULT_THEME_COLOR);
+  const [tempThemeColor, setTempThemeColor] = useState(() => localStorage.getItem("themeColor") || DEFAULT_THEME_COLOR);
+
+  const hexToRgba = (hex, alpha) => {
+    const normalizedHex = hex.replace('#', '');
+    const safeHex = normalizedHex.length === 3
+      ? normalizedHex.split('').map((char) => char + char).join('')
+      : normalizedHex;
+
+    const intValue = Number.parseInt(safeHex, 16);
+    const red = (intValue >> 16) & 255;
+    const green = (intValue >> 8) & 255;
+    const blue = intValue & 255;
+
+    return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+  };
+
+  useEffect(() => {
+    const nextTheme = themeColor || DEFAULT_THEME_COLOR;
+    document.documentElement.style.setProperty("--theme-color", nextTheme);
+    document.documentElement.style.setProperty("--theme-color-soft", hexToRgba(nextTheme, 0.12));
+    document.documentElement.style.setProperty("--theme-color-strong", hexToRgba(nextTheme, 0.22));
+    document.documentElement.style.setProperty("--theme-color-shadow", hexToRgba(nextTheme, 0.18));
+    localStorage.setItem("themeColor", nextTheme);
+  }, [themeColor]);
+
+  useEffect(() => {
+    setTempThemeColor(themeColor);
+  }, [themeColor]);
 
   const handlePaymentSuccess = (msg) => {
     setCart((prev) => prev.map((item) => ({ ...item, status: "SENT" })));
@@ -159,7 +192,7 @@ function App() {
     // Only clear session when the user scanned a DIFFERENT table's QR code.
     // If there's no tableId in the URL (e.g. takeaway login), leave the session intact.
     if (tid && oldTableId && oldTableId !== String(tid)) {
-      localStorage.removeItem("isLoggedIn");
+      sessionStorage.removeItem("isLoggedIn");
       localStorage.removeItem("qr_pos_user");
       localStorage.removeItem("promoCode");
       localStorage.removeItem("promoAmount");
@@ -298,6 +331,34 @@ function App() {
   const filteredItems = dishes.filter((dish) =>
     dish.Name?.toLowerCase().includes(search.toLowerCase())
   );
+
+  // When dishes change, pre-fetch modifier status for all of them in parallel
+  useEffect(() => {
+    if (!dishes || dishes.length === 0) return;
+    const controller = new AbortController();
+    const fetchAll = async () => {
+      const results = await Promise.all(
+        dishes.map(async (dish) => {
+          // Skip combo dishes — they always open the customizer
+          if (Number(dish.IsCombo) === 1) return { id: dish.DishId, hasMods: true };
+          try {
+            const res = await fetch(`${API}/modifiers/${dish.DishId}`, { signal: controller.signal });
+            if (!res.ok) return { id: dish.DishId, hasMods: false };
+            const mods = await res.json();
+            return { id: dish.DishId, hasMods: Array.isArray(mods) && mods.length > 0 };
+          } catch {
+            return { id: dish.DishId, hasMods: false };
+          }
+        })
+      );
+      const cache = {};
+      results.forEach(({ id, hasMods }) => { cache[id] = hasMods; });
+      setDishModifiersCache(prev => ({ ...prev, ...cache }));
+    };
+    fetchAll();
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dishes]);
 
   // const openModifiers = async (dish) => {
   //   console.log("Clicked");
@@ -846,7 +907,7 @@ function App() {
       beforeGST * (gstPercent / 100);
 
     // Final Total
-    const grandTotal = subTotal + serviceCharge;
+    const grandTotal = subTotal + serviceCharge + gstAmount;
 
     const totalAmount = (
       grandTotal - promoAmount
@@ -1439,6 +1500,8 @@ function App() {
           selectedMods,
 
           finalPrice,
+          Price: finalPrice,
+          price: finalPrice,
 
           modifierKey: modKey,
 
@@ -1468,8 +1531,8 @@ function App() {
   };
 
   // SVGs for Icons
-  const SettingsIcon = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  const SettingsIcon = ({ color = '#333' }) => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3"></circle>
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
     </svg>
@@ -1484,7 +1547,7 @@ function App() {
   );
 
   const CartIcon = () => (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={themeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
   );
 
   const ForkKnifeIcon = () => (
@@ -1492,7 +1555,7 @@ function App() {
   );
 
   const BurgerDrinkIcon = () => (
-    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke={themeColor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
       <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
       <line x1="6" y1="1" x2="6" y2="4"></line>
@@ -1669,11 +1732,11 @@ function App() {
         element={
 
           // <div className="pos-app">
-          <PullToRefresh onRefresh={handleRefresh} backgroundColor="#f97316" pullingContent={""}>
+          <PullToRefresh onRefresh={handleRefresh} backgroundColor={themeColor} pullingContent={""}>
             <div className="pos-app">
               {isCartLoading && (
                 <div className="modal-overlay" style={{ zIndex: 99999, flexDirection: 'column', cursor: 'wait' }}>
-                  <div style={{ width: '50px', height: '50px', border: '5px solid rgba(255,255,255,0.3)', borderTop: '5px solid #f97316', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                  <div style={{ width: '50px', height: '50px', border: '5px solid rgba(255,255,255,0.3)', borderTop: `5px solid ${themeColor}`, borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
                   <div style={{ color: '#fff', marginTop: '16px', fontSize: '18px', fontWeight: 'bold' }}>Loading...</div>
                   <style>
                     {`
@@ -1685,69 +1748,112 @@ function App() {
                   </style>
                 </div>
               )}
-              {/* Top Header */}
+              {/* ── Top Header (reference design) ── */}
               <div className="pos-header">
-                {/* <button className="icon-btn" onClick={() => setShowSettingsModal(true)}>
-          <SettingsIcon />
-        </button> */}
-                {!isSearchOpen ? (
-                  <button className="icon-btn" onClick={() => setIsSearchOpen(true)} style={{ border: 'none', background: 'transparent' }}>
-                    <SearchIcon />
-                  </button>
-                ) : (
-                  <div className="search-wrap" style={{ display: 'flex', alignItems: 'center' }}>
-                    <SearchIcon />
+
+                {/* Left: Back button OR search */}
+                {isSearchOpen ? (
+                  <div className="search-wrap" style={{ flex: 1, marginRight: '8px' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
                     <input
                       type="text"
-                      placeholder="Search"
+                      placeholder="Search delicious food..."
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       autoFocus
-                      onBlur={() => {
-                        if (!search) setIsSearchOpen(false);
-                      }}
-                      style={{ outline: 'none', border: 'none', marginLeft: '5px' }}
+                      onBlur={() => { if (!search) setIsSearchOpen(false); }}
+                      style={{ outline: 'none', border: 'none', marginLeft: '8px', fontSize: '14px', flex: 1 }}
                     />
-                    <button onClick={() => { setIsSearchOpen(false); setSearch(""); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888' }}>✖</button>
+                    <button onClick={() => { setIsSearchOpen(false); setSearch(""); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: '16px' }}>✕</button>
+                  </div>
+                ) : (
+                  <button
+                    className="header-back-btn"
+                    onClick={() => setIsSearchOpen(true)}
+                    title="Search"
+                  >
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                  </button>
+                )}
+
+                {/* Center: Title + Table badge */}
+                {!isSearchOpen && (
+                  <div className="header-center">
+                    <span className="header-title">Menu</span>
+                    {tableNo && (
+                      <span className="header-table-badge">Takeaway {tableNo}</span>
+                    )}
                   </div>
                 )}
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+
+                {/* Right: Action icons */}
+                <div className="header-actions">
+                  {/* Cart / Bill icon */}
                   <button
-                    className={`status-btn ${cart.length > 0 ? 'blink-anim' : ''}`}
+                    className={`header-icon-btn ${cart.length > 0 ? 'blink-anim' : ''}`}
                     onClick={() => setShowCartPage(!showCartPage)}
-                    style={{ background: '#fe7a38', color: 'white', transition: 'transform 0.1s ease-out', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    title="Cart"
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
-                      <circle cx="9" cy="21" r="1"></circle>
-                      <circle cx="20" cy="21" r="1"></circle>
-                      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={themeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="16" y1="13" x2="8" y2="13" />
+                      <line x1="16" y1="17" x2="8" y2="17" />
+                      <polyline points="10 9 9 9 8 9" />
                     </svg>
-                    Cart → {cart.length > 0 && `(${cart.length})`}
+                    {cart.length > 0 && (
+                      <span className="cart-badge">{cart.length}</span>
+                    )}
                   </button>
 
+                  {/* Order Status icon */}
                   <button
-                    className="status-btn"
+                    className="header-icon-btn"
                     onClick={() =>
-                      window.location.href =
-                      `/settlement-success?tableId=${tableId}&table=${tableNo}&orderId=${currentOrderId}`
+                      window.location.href = `/settlement-success?tableId=${tableId}&table=${tableNo}&orderId=${currentOrderId}`
                     }
+                    title="Order Status"
                   >
-                    🟢 Order Status
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={themeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                      <line x1="3" y1="9" x2="21" y2="9" />
+                      <line x1="9" y1="21" x2="9" y2="9" />
+                    </svg>
                   </button>
 
+                  {/* Settings icon */}
+                  <button
+                    className="header-icon-btn"
+                    onClick={() => {
+                      setTempThemeColor(themeColor);
+                      setShowSettingsModal(true);
+                    }}
+                    title="Appearance Settings"
+                  >
+                    <SettingsIcon color={themeColor} />
+                  </button>
+
+                  {/* Logout icon */}
                   {enableLogin && (
                     <button
-                      className="logout-btn"
+                      className="header-icon-btn"
                       onClick={() => {
-                        localStorage.removeItem("isLoggedIn");
+                        sessionStorage.removeItem("isLoggedIn");
                         localStorage.removeItem("qr_pos_user");
                         localStorage.removeItem("promoCode");
                         localStorage.removeItem("promoAmount");
                         localStorage.removeItem("memberId");
                         window.location.reload();
                       }}
+                      title="Logout"
                     >
-                      🚪 Logout
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={themeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                        <polyline points="16 17 21 12 16 7" />
+                        <line x1="21" y1="12" x2="9" y2="12" />
+                      </svg>
                     </button>
                   )}
                 </div>
@@ -1807,7 +1913,6 @@ function App() {
                         }}
                         style={{
                           backgroundColor: dish.IsServiceCharge ? "#FFF3F3" : "#fff",
-
                           border: dish.IsServiceCharge
                             ? "2px solid #FFA8A8"
                             : "1px solid #E5E7EB",
@@ -1825,36 +1930,66 @@ function App() {
                             </div>
                           )}
                         </div>
-                        <div
-                          className="dish-name"
-                          style={{
-                            color: dish.IsServiceCharge
-                              ? "#D32F2F"
-                              : "#111827",
-                          }}
-                        >
-                          {dish.Name}
-
-                          {dish.IsSoldOut && (
-                            <div className="sold-out-badge">
-                              Sold Out
-                            </div>
-                          )}
-                        </div>
-                        <div
-                          className="dish-price"
-                          style={{
-                            color: dish.IsSoldOut
-                              ? "#F97316"
-                              : dish.IsServiceCharge
+                        <div className="dish-info">
+                          <div
+                            className="dish-name"
+                            style={{
+                              color: dish.IsServiceCharge
                                 ? "#D32F2F"
-                                : "#F97316",
-                          }}
-                        >
-                          ${Number(dish.Price || 0).toFixed(2)}
+                                : "#111827",
+                            }}
+                          >
+                            {dish.Name}
+                            {dish.IsSoldOut && (
+                              <span className="sold-out-badge" style={{ marginLeft: "8px" }}>
+                                Sold Out
+                              </span>
+                            )}
+                          </div>
+                          <div className="dish-desc">
+                            Delicious and freshly prepared based on our authentic traditional recipe.
+                          </div>
+                          <div className="dish-footer">
+                            <div
+                              className="dish-price"
+                              style={{
+                                color: dish.IsSoldOut
+                                  ? "var(--theme-color)"
+                                  : dish.IsServiceCharge
+                                    ? "#D32F2F"
+                                    : "var(--theme-color)",
+                              }}
+                            >
+                              ${Number(dish.Price || 0).toFixed(2)}
+                            </div>
+                            {!dish.IsSoldOut && (
+                              <button
+                                className="customize-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openModifiers(dish);
+                                }}
+                              >
+                                {dishModifiersCache[dish.DishId] === true ? "Customize" : "Add"}
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {/* Mobile Sticky View Cart Bar */}
+                {!showCartPage && cart.length > 0 && (
+                  <div className="view-cart-bar">
+                    <div className="vc-left">
+                      <div className="vc-items">{cart.length} Item{cart.length !== 1 ? 's' : ''}</div>
+                      <div className="vc-price">${Number(totalAmount).toFixed(2)}</div>
+                    </div>
+                    <button className="view-cart-btn" onClick={() => setShowCartPage(true)}>
+                      View Cart &rarr;
+                    </button>
                   </div>
                 )}
 
@@ -1862,7 +1997,7 @@ function App() {
                 {showCartPage && (
                   <div className="cart-sidebar">
                     <div className="cart-header">
-                      <button onClick={() => setShowCartPage(false)} style={{ background: 'none', border: '1px solid #ddd', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', color: '#fe7a38', fontWeight: 'bold' }}>
+                      <button onClick={() => setShowCartPage(false)} style={{ background: 'none', border: '1px solid #ddd', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', color: themeColor, fontWeight: 'bold' }}>
                         Go to Home Page
                       </button>
                       <span className="cart-table-no">
@@ -1885,7 +2020,7 @@ function App() {
                         >
                           ↻ Refresh
                         </button>
-                        <span className="cart-sync" style={{ color: isCartLoading ? '#f97316' : '#9ca3af' }}>
+                        <span className="cart-sync" style={{ color: isCartLoading ? themeColor : '#9ca3af' }}>
                           {isCartLoading ? "• Loading..." : "• Synced"}
                         </span>
                       </div>
@@ -1937,7 +2072,7 @@ function App() {
                                     <div className="ci-mods">
                                       {item.comboSelections.map((group, index) => (
                                         <div key={index} style={{ marginTop: "4px" }}>
-                                          <div style={{ color: "#f97316", fontWeight: "600" }}>
+                                          <div style={{ color: themeColor, fontWeight: "600" }}>
                                             {group.groupName}:
                                           </div>
 
@@ -2089,13 +2224,13 @@ function App() {
                     <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
                       {comboLoading ? (
                         <div className="loading-container" style={{ textAlign: 'center', padding: '20px' }}>
-                          <div className="spinner" style={{ display: 'inline-block', width: '30px', height: '30px', border: '3px solid #ccc', borderTopColor: '#f97316', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                          <div className="spinner" style={{ display: 'inline-block', width: '30px', height: '30px', border: '3px solid #ccc', borderTopColor: themeColor, borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
                           <p style={{ marginTop: '10px', color: '#666' }}>Loading combo options...</p>
                         </div>
                       ) : comboError ? (
                         <div className="error-container" style={{ textAlign: 'center', padding: '20px', color: 'red' }}>
                           <p>{comboError}</p>
-                          <button className="btn-retry" onClick={() => openComboCustomizer(selectedDish)} style={{ background: '#f97316', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px' }}>Retry</button>
+                          <button className="btn-retry" onClick={() => openComboCustomizer(selectedDish)} style={{ background: themeColor, color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px' }}>Retry</button>
                         </div>
                       ) : (
                         <div className="combo-groups">
@@ -2118,8 +2253,8 @@ function App() {
                                         className={`option-card ${isSelected ? 'selected' : ''}`}
                                         onClick={() => handleSelectComboOption(group.comboGroupId, option, group.isMultiSelect, group.maxSelection)}
                                         style={{
-                                          border: isSelected ? '2px solid #f97316' : '1.5px solid #eaecee',
-                                          background: isSelected ? '#fff5eb' : 'white',
+                                          border: isSelected ? `2px solid ${themeColor}` : '1.5px solid #eaecee',
+                                          background: isSelected ? 'var(--theme-color-soft)' : 'white',
                                           borderRadius: '12px',
                                           padding: '10px',
                                           boxSizing: 'border-box',
@@ -2128,9 +2263,9 @@ function App() {
                                           position: 'relative'
                                         }}
                                       >
-                                        <div style={{ fontWeight: 'bold', fontSize: '13px', color: isSelected ? '#f97316' : '#2c3e50' }}>{option.name}</div>
+                                        <div style={{ fontWeight: 'bold', fontSize: '13px', color: isSelected ? themeColor : '#2c3e50' }}>{option.name}</div>
                                         {(option.surcharge > 0 || option.dishPrice > 0) && (
-                                          <div style={{ fontSize: '11px', color: '#f97316', background: '#ffeedb', display: 'inline-block', padding: '1px 6px', borderRadius: '8px', marginTop: '4px' }}>
+                                          <div style={{ fontSize: '11px', color: themeColor, background: 'var(--theme-color-soft)', display: 'inline-block', padding: '1px 6px', borderRadius: '8px', marginTop: '4px' }}>
                                             +${((Number(option.surcharge) || 0) + (Number(option.dishPrice) || 0)).toFixed(2)}
                                           </div>
                                         )}
@@ -2157,18 +2292,18 @@ function App() {
                                         justifyContent: 'space-between',
                                         alignItems: 'center',
                                         padding: '10px 14px',
-                                        border: isSelected ? '1px solid #f97316' : '1px solid #eaecee',
-                                        background: isSelected ? '#fff5eb' : '#faf9f6',
+                                        border: isSelected ? `1px solid ${themeColor}` : '1px solid #eaecee',
+                                        background: isSelected ? 'var(--theme-color-soft)' : '#faf9f6',
                                         borderRadius: '10px',
                                         cursor: 'pointer'
                                       }}
                                     >
                                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <span style={{ color: isSelected ? '#f97316' : '#7f8c8d' }}>{isSelected ? '☑' : '☐'}</span>
+                                        <span style={{ color: isSelected ? themeColor : '#7f8c8d' }}>{isSelected ? '☑' : '☐'}</span>
                                         <span style={{ fontSize: '14px', color: '#2c3e50' }}>{m.ModifierName}</span>
                                       </div>
                                       {m.Price > 0 && (
-                                        <span style={{ fontWeight: 'bold', color: '#f97316' }}>+${Number(m.Price).toFixed(2)}</span>
+                                        <span style={{ fontWeight: 'bold', color: themeColor }}>+${Number(m.Price).toFixed(2)}</span>
                                       )}
                                     </div>
                                   );
@@ -2184,7 +2319,7 @@ function App() {
                       {comboError && (
                         <div style={{ color: 'red', fontSize: '13px', textAlign: 'center', marginBottom: '5px' }}>{comboError}</div>
                       )}
-                      <button className="btn-add" onClick={handleAddComboToCart} style={{ width: '100%', background: '#f97316', color: 'white', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer' }}>
+                      <button className="btn-add" onClick={handleAddComboToCart} style={{ width: '100%', background: themeColor, color: 'white', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer' }}>
                         Add Combo to Cart - ${calculateComboTotal().toFixed(2)}
                       </button>
                       <button className="btn-cancel" onClick={handleAddBaseComboDirectly} style={{ width: '100%', background: '#eceff1', color: '#37474f', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer' }}>
@@ -2235,7 +2370,7 @@ function App() {
                             className="modifier-row"
                             onClick={() => toggleModifier(m)}
                           >
-                            <span className="modifier-name" style={{ color: '#f97316' }}>
+                            <span className="modifier-name" style={{ color: themeColor }}>
                               {m.ModifierName} {m.Price > 0 && `(+$${m.Price.toFixed(2)})`} (Custom)
                             </span>
                             <div
@@ -2583,7 +2718,7 @@ function App() {
                         <div style={{ background: 'white', borderRadius: '20px', padding: '20px', boxShadow: '0 4px 15px rgba(0,0,0,0.04)' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', alignItems: 'center' }}>
                             <span style={{ color: '#666', fontWeight: 'bold', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.5px' }}>Amount Due</span>
-                            <span style={{ fontSize: '28px', fontWeight: '900', color: '#f97316' }}>${totalAmount}</span>
+                            <span style={{ fontSize: '28px', fontWeight: '900', color: themeColor }}>${totalAmount}</span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px' }}>
                             <span style={{ color: '#666', fontWeight: '600' }}>Subtotal</span>
@@ -2599,7 +2734,7 @@ function App() {
                           <h3 style={{ margin: '0 0 15px 0', textTransform: 'uppercase', fontSize: '11px', color: '#666', letterSpacing: '0.5px' }}>Order Items</h3>
                           {cart.map((item, idx) => (
                             <div key={idx} style={{ display: 'flex', padding: '12px 0', borderBottom: '1px solid #f3f4f6' }}>
-                              <div style={{ width: '30px', color: '#f97316', fontWeight: '900', fontSize: '13px' }}>{item.qty}x</div>
+                              <div style={{ width: '30px', color: themeColor, fontWeight: '900', fontSize: '13px' }}>{item.qty}x</div>
                               <div style={{ flex: 1, fontWeight: '600', color: '#1f2937', fontSize: '13px' }}>
                                 {item.Name || item.name}
                                 {item.selectedMods?.length > 0 && (
@@ -2717,7 +2852,7 @@ function App() {
                       {/* Amount Box */}
                       <div style={{ backgroundColor: '#F8FAFC', padding: '10px', borderRadius: '12px', alignItems: 'center', marginBottom: '16px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', marginBottom: '2px' }}>Total Amount to Collect</div>
-                        <div style={{ fontSize: '22px', fontWeight: '900', color: '#f97316' }}>${totalAmount}</div>
+                        <div style={{ fontSize: '22px', fontWeight: '900', color: themeColor }}>${totalAmount}</div>
                       </div>
 
                       {/* QR Code Container */}
@@ -2759,74 +2894,50 @@ function App() {
                 <div className="modal-overlay" style={{ zIndex: 10003 }}>
                   <div className="modal-content" style={{ maxWidth: '420px', display: 'flex', flexDirection: 'column' }}>
                     <div className="modal-header">
-                      <h2 className="modal-title">Payment Settings</h2>
+                      <h2 className="modal-title">Appearance Settings</h2>
                       <button className="modal-close" onClick={() => setShowSettingsModal(false)}>&times;</button>
                     </div>
                     <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
                       <div style={{ border: '1px solid #eee', borderRadius: '12px', padding: '16px' }}>
-                        <h3 style={{ margin: '0 0 4px 0', fontSize: '14px', color: '#333' }}>PayNow UPI ID</h3>
-                        <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#6b7280' }}>Enter your PayNow / UPI ID. The QR will be generated dynamically with the correct amount.</p>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
-
-                            const file = e.target.files[0];
-
-                            const reader = new FileReader();
-
-                            reader.onloadend = () => {
-
-                              const base64 = reader.result.split(",")[1];
-
-                              setTempPaynowUpiId(base64);
-                            };
-
-                            if (file) {
-                              reader.readAsDataURL(file);
-                            }
-
-                          }}
-                        />
-                        {/* {tempPaynowUpiId && (
-                  <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'center' }}>
-                    <QRCodeSVG
-  value={
-    tempPaynowUpiId &&
-    tempPaynowUpiId.length < 100
-      ? `upi://pay?pa=${tempPaynowUpiId}&pn=Merchant&am=1&cu=INR`
-      : "upi://pay?pa=test@upi&pn=Merchant&am=1&cu=INR"
-  }
-  size={100}
-/>
-                  </div>
-                )} */}
+                        <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#333' }}>Theme Color</h3>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+                          {THEME_COLOR_OPTIONS.map((color) => (
+                            <button
+                              key={color}
+                              type="button"
+                              aria-label={`Select theme color ${color}`}
+                              onClick={() => setTempThemeColor(color)}
+                              style={{
+                                width: '30px',
+                                height: '30px',
+                                borderRadius: '50%',
+                                border: tempThemeColor === color ? '2px solid #111827' : '2px solid #e5e7eb',
+                                background: color,
+                                cursor: 'pointer',
+                                boxShadow: tempThemeColor === color ? '0 0 0 3px rgba(17,24,39,0.08)' : 'none'
+                              }}
+                            />
+                          ))}
+                        </div>
+                        <label htmlFor="theme-color-picker" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', fontSize: '13px', color: '#374151', fontWeight: '600' }}>
+                          Custom color
+                          <input
+                            id="theme-color-picker"
+                            aria-label="Theme color"
+                            type="color"
+                            value={tempThemeColor}
+                            onChange={(e) => setTempThemeColor(e.target.value)}
+                            style={{ width: '56px', height: '36px', border: '1px solid #ddd', borderRadius: '8px', background: '#fff', padding: '2px', cursor: 'pointer' }}
+                          />
+                        </label>
                       </div>
-
-                      {/* <div style={{ border: '1px solid #eee', borderRadius: '12px', padding: '16px' }}>
-                <h3 style={{ margin: '0 0 4px 0', fontSize: '14px', color: '#333' }}>GPay / UPI ID</h3>
-                <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#6b7280' }}>Enter your GPay / UPI ID. The QR will include the exact order amount when shown at checkout.</p>
-                <input
-                  type="text"
-                  placeholder="e.g. 9876543210@superyes"
-                  value={tempUpiUpiId}
-                  onChange={(e) => setTempUpiUpiId(e.target.value)}
-                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }}
-                />
-                {tempUpiUpiId && (
-                  <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'center' }}>
-                    <QRCodeSVG value={`upi://pay?pa=${tempUpiUpiId}&pn=Merchant&am=1&cu=INR`} size={100} />
-                  </div>
-                )}
-              </div> */}
 
                     </div>
                     <div className="modal-footer" style={{ display: 'flex', gap: '10px' }}>
                       <button className="btn-cancel" onClick={() => setShowSettingsModal(false)}>Cancel</button>
                       <button className="btn-add" style={{ flex: 1 }} onClick={() => {
-                        saveUpiId('paynow', tempPaynowUpiId);
-                        saveUpiId('upi', tempUpiUpiId);
+                        setThemeColor(tempThemeColor);
                         setShowSettingsModal(false);
                       }}>Save Settings</button>
                     </div>

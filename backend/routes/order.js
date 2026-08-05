@@ -227,8 +227,8 @@ async function syncToProfessionalTables(transaction, tableId, displayOrderId, it
     //   }
     // }
 
-    
-   if (!lineItemId || lineItemId.length < 10) {
+
+    if (!lineItemId || lineItemId.length < 10) {
 
       const matchCheck = await transaction.request()
         .input("orderId", sql.UniqueIdentifier, orderGuid)
@@ -247,25 +247,25 @@ async function syncToProfessionalTables(transaction, tableId, displayOrderId, it
           ORDER BY CreatedOn DESC
         `);
 
-        console.log("========== MATCH CHECK ==========");
-console.log("Dish :", finalProdId);
-console.log("Mods :", modsJSON);
-console.log("Combo :", comboDetailsJSON);
-console.log("Found :", matchCheck.recordset);
+      console.log("========== MATCH CHECK ==========");
+      console.log("Dish :", finalProdId);
+      console.log("Mods :", modsJSON);
+      console.log("Combo :", comboDetailsJSON);
+      console.log("Found :", matchCheck.recordset);
 
       if (matchCheck.recordset.length > 0) {
         lineItemId = matchCheck.recordset[0].OrderDetailId;
       } else {
         lineItemId = crypto.randomUUID();
       }
-      }
+    }
     // const comboDetailsJSON = JSON.stringify(item.comboSelections || []).substring(0, 4000);
 
     console.log("MATCH LINEITEM:", lineItemId);
-console.log("ITEM:", item.name);
-console.log("COMBO:", comboDetailsJSON);
-console.log("QTY:", item.qty);
-console.log("LINE ITEM ID:", lineItemId);
+    console.log("ITEM:", item.name);
+    console.log("COMBO:", comboDetailsJSON);
+    console.log("QTY:", item.qty);
+    console.log("LINE ITEM ID:", lineItemId);
 
 
     const detailCheck = await transaction.request().input("detailId", sql.UniqueIdentifier, lineItemId).query("SELECT OrderDetailId,StatusCode FROM RestaurantOrderDetailCur WHERE OrderDetailId = @detailId");
@@ -300,7 +300,7 @@ console.log("LINE ITEM ID:", lineItemId);
             String(noteInfo.value || "").substring(0, 100)
           )
           .input("isTakeaway", sql.Bit, takeawayInfo.value ? 1 : 0)
-         .query(`
+          .query(`
 UPDATE RestaurantOrderDetailCur
 SET
     Quantity = @qty,
@@ -1258,35 +1258,51 @@ router.get("/order-details/:orderId", async (req, res) => {
     const result = await pool.request()
       .input("orderNo", sql.NVarChar(50), orderId)
       .query(`
-        SELECT
+        SELECT TOP 1
+            o.OrderId,
             o.Tableno,
             o.OrderDateTime,
             o.OrderNumber,
 
-            CASE
-                WHEN d.StatusCode = 2 THEN 'PREPARING'
-                WHEN d.StatusCode = 3 THEN 'READY'
-                WHEN d.StatusCode = 1 THEN 'PREPARING'
-                ELSE 'UNKNOWN'
-            END AS StatusLabel,
+            -- Get the MAX StatusCode across ALL items for this order (ignoring isDelivered filter)
+            (
+              SELECT MAX(d2.StatusCode)
+              FROM RestaurantOrderDetailCur d2
+              WHERE d2.OrderId = o.OrderId
+                AND d2.StatusCode IN (1,2,3,4)
+            ) AS StatusCode,
 
-            d.Description,
-            d.DishName,
-            d.Quantity,
-            d.PricePerUnit AS Price,
-            d.ComboDetailsJSON,
-            d.ModifiersJSON
+            CASE
+                WHEN (
+                  SELECT MAX(d2.StatusCode)
+                  FROM RestaurantOrderDetailCur d2
+                  WHERE d2.OrderId = o.OrderId
+                    AND d2.StatusCode IN (1,2,3,4)
+                ) = 2 THEN 'PREPARING'
+                WHEN (
+                  SELECT MAX(d2.StatusCode)
+                  FROM RestaurantOrderDetailCur d2
+                  WHERE d2.OrderId = o.OrderId
+                    AND d2.StatusCode IN (1,2,3,4)
+                ) = 3 THEN 'READY'
+                WHEN (
+                  SELECT MAX(d2.StatusCode)
+                  FROM RestaurantOrderDetailCur d2
+                  WHERE d2.OrderId = o.OrderId
+                    AND d2.StatusCode IN (1,2,3,4)
+                ) = 4 THEN 'COMPLETED'
+                ELSE 'PREPARING'
+            END AS StatusLabel
 
         FROM RestaurantOrderCur o
-        INNER JOIN RestaurantOrderDetailCur d
-            ON o.OrderId = d.OrderId
 
-        WHERE ISNULL(d.isDelivered,0) = 0
-          AND d.StatusCode IN (1,2,3)
-          AND o.entry_status = 'q'
-          AND o.OrderNumber = @orderNo
+        WHERE o.entry_status = 'q'
+          AND (
+            o.OrderNumber = @orderNo
+            OR CAST(o.OrderId AS NVARCHAR(50)) = @orderNo
+          )
 
-        ORDER BY d.CreatedOn ASC
+        ORDER BY o.OrderDateTime DESC
       `);
 
     res.json(result.recordset);
@@ -1301,7 +1317,59 @@ router.get("/order-details/:orderId", async (req, res) => {
   }
 });
 
+// Get all line items for an order (used by Order Details popup on confirmation page)
+router.get("/order-items/:orderId", async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const pool = await poolPromise;
+
+    // First resolve the OrderId GUID from the OrderNumber string
+    const orderRes = await pool.request()
+      .input("orderNo", sql.NVarChar(50), orderId)
+      .query(`
+        SELECT TOP 1 OrderId
+        FROM RestaurantOrderCur
+        WHERE OrderNumber = @orderNo
+           OR CAST(OrderId AS NVARCHAR(50)) = @orderNo
+        ORDER BY OrderDateTime DESC
+      `);
+
+    if (!orderRes.recordset.length) {
+      return res.json({ success: true, items: [] });
+    }
+
+    const orderGuid = String(orderRes.recordset[0].OrderId).replace(/^\{|\}$/g, '').trim();
+
+    const result = await pool.request()
+      .input("orderId", sql.UniqueIdentifier, orderGuid)
+      .query(`
+        SELECT
+            d.OrderDetailId,
+            d.DishName,
+            d.Quantity,
+            d.PricePerUnit,
+            d.StatusCode,
+            d.Remarks,
+            (d.Quantity * d.PricePerUnit) AS LineTotal
+        FROM RestaurantOrderDetailCur d
+        WHERE d.OrderId = @orderId
+          AND d.StatusCode > 0
+        ORDER BY d.CreatedOn ASC
+      `);
+
+    console.log("REQ ORDER:", orderId);
+    console.log("ORDER GUID:", orderGuid);
+    console.log("ITEMS:", result.recordset);
+
+    res.json({ success: true, items: result.recordset });
+  } catch (err) {
+    console.error("❌ order-items error:", err.message, err.stack);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 //online payment process
+
 router.post("/payment-status", async (req, res) => {
   try {
     const { tableId, paymentStatus } = req.body;
@@ -1378,38 +1446,38 @@ router.post("/mark-sent", async (req, res) => {
 
     console.log("Rows Updated:", result.rowsAffected);
 
- /* TABLE ALERT MSG */
- 
+    /* TABLE ALERT MSG */
+
     const tableResult = await pool.request()
-  .input("orderNo", sql.NVarChar(50), orderId)
-  .query(`
+      .input("orderNo", sql.NVarChar(50), orderId)
+      .query(`
     SELECT TOP 1 Tableno
     FROM RestaurantOrderCur
     WHERE OrderNumber = @orderNo
   `);
 
-const tableNo = tableResult.recordset[0]?.Tableno || "";
+    const tableNo = tableResult.recordset[0]?.Tableno || "";
 
 
-if (finalStatusCode === 2 && result.rowsAffected[0] > 0) {
-    const io = req.app.get("io");
+    if (finalStatusCode === 2 && result.rowsAffected[0] > 0) {
+      const io = req.app.get("io");
 
-    console.log("🔥 Emitting qr_customer_entered");
-    console.log({
-      orderId,
-      tableNo
-    });
+      console.log("🔥 Emitting qr_customer_entered");
+      console.log({
+        orderId,
+        tableNo
+      });
 
-    console.log("Socket Exists:", !!io);
+      console.log("Socket Exists:", !!io);
 
-    io.emit("qr_customer_entered", {
+      io.emit("qr_customer_entered", {
         orderId,
         tableNo,
         statusCode: 2
-    });
+      });
 
-    console.log("✅ qr_customer_entered emitted");
-}
+      console.log("✅ qr_customer_entered emitted");
+    }
 
     if (enableKotQr === 1 && req.io) {
       req.io.emit("qr-print-request", {

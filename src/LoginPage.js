@@ -160,7 +160,7 @@ export default function LoginPage({ onLoginSuccess }) {
           return;
         }
 
-        localStorage.setItem("isLoggedIn", "true");
+        sessionStorage.setItem("isLoggedIn", "true");
         localStorage.setItem("qr_pos_user", JSON.stringify(data.user));
 
         if (data.user?.Promocode) {
@@ -267,32 +267,24 @@ export default function LoginPage({ onLoginSuccess }) {
 
   return (
     <div className="login-root">
-      {/* Floating particles */}
-      {[...Array(6)].map((_, i) => (
-        <div
-          key={i}
-          className="qr-particle"
-          style={{
-            left: `${10 + i * 15}%`,
-            width: `${4 + i * 2}px`,
-            height: `${4 + i * 2}px`,
-            animationDuration: `${8 + i * 3}s`,
-            animationDelay: `${i * 1.5}s`,
-          }}
-        />
-      ))}
+      <div className="login-top-curve">
+        {/* <div className="login-table-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+             <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/>
+          </svg>
+          Table 30
+        </div> */}
+      </div>
 
       <div className="login-card">
 
         {/* Brand */}
         <div className="login-brand">
           <div className="login-logo-ring">
-            <ForkIcon />
+            <img src="https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=150&h=150" alt="Restaurant Logo" />
           </div>
-          <div className="login-brand-name">QR POS</div>
-          <div className="login-brand-sub">Restaurant Ordering System</div>
+          <div className="login-brand-name">Smart POS</div>
         </div>
-
 
         {/* Tab Switcher */}
         <div className="login-tabs" role="tablist">
@@ -316,18 +308,30 @@ export default function LoginPage({ onLoginSuccess }) {
           </button>
         </div>
 
+        {tab === "signin" && (
+          <div className="login-heading">
+            <div className="login-title">Hello</div>
+            <div className="login-subtitle">Sign into your Account</div>
+          </div>
+        )}
+
         {/* ── SIGN IN FORM ────────────────────────── */}
         {tab === "signin" && (
           <form className="login-form" onSubmit={handleSignIn} key="signin">
             <div className="login-field">
-              <label className="login-label" htmlFor="si-username">Username</label>
+              <label className="login-label" htmlFor="si-username">Email ID or Username*</label>
               <div className="login-input-wrap">
-                <span className="login-input-icon"><UserIcon /></span>
+                <span className="login-input-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="4" width="20" height="16" rx="2" />
+                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                  </svg>
+                </span>
                 <input
                   id="si-username"
                   className="login-input"
                   type="text"
-                  placeholder="Enter your username"
+                  placeholder="valentino@gmail.com"
                   value={siUsername}
                   onChange={(e) => setSiUsername(e.target.value)}
                   autoComplete="username"
@@ -337,14 +341,14 @@ export default function LoginPage({ onLoginSuccess }) {
             </div>
 
             <div className="login-field">
-              <label className="login-label" htmlFor="si-password">Password</label>
+              <label className="login-label" htmlFor="si-password">Password*</label>
               <div className="login-input-wrap">
                 <span className="login-input-icon"><LockIcon /></span>
                 <input
                   id="si-password"
                   className="login-input"
                   type={showPass ? "text" : "password"}
-                  placeholder="Enter your password"
+                  placeholder="••••••••••••"
                   value={siPassword}
                   onChange={(e) => setSiPassword(e.target.value)}
                   autoComplete="current-password"
@@ -360,6 +364,10 @@ export default function LoginPage({ onLoginSuccess }) {
               </div>
             </div>
 
+            <div className="login-forgot-password">
+              <a href="#forgot" onClick={(e) => e.preventDefault()}>Forgot your Password?</a>
+            </div>
+
             {error && (
               <div className="login-error" role="alert">
                 <AlertIcon /> {error}
@@ -373,34 +381,44 @@ export default function LoginPage({ onLoginSuccess }) {
               disabled={loading}
             >
               {loading && <span className="login-spinner" />}
-              Sign In
+              Login
             </button>
 
-            <div className="login-switch">
+            <div className="login-divider">or</div>
+
+            <button
+              type="button"
+              className="login-guest-btn"
+              onClick={async () => {
+                setError("");
+                setLoading(true);
+                try {
+                  await assignTakeawayTable();
+                  const guestUser = { FullName: "Guest", UserId: "guest", UserName: "guest" };
+                  sessionStorage.setItem("isLoggedIn", "true");
+                  localStorage.setItem("qr_pos_user", JSON.stringify(guestUser));
+                  if (onLoginSuccess) {
+                    onLoginSuccess(guestUser);
+                  } else {
+                    window.location.reload();
+                  }
+                } catch (tableError) {
+                  setError(tableError.message || "Unable to assign a new table.");
+                } finally {
+                  setLoading(false);
+                }
+              }}
+            >
+              <UserIcon /> Continue as Guest
+            </button>
+
+            <div className="login-footer-text">
               Don't have an account?{" "}
               <button
                 type="button"
-                onClick={async () => {
-                  setError("");
-                  setLoading(true);
-                  try {
-                    await assignTakeawayTable();
-                    const guestUser = { FullName: "Guest", UserId: "guest", UserName: "guest" };
-                    localStorage.setItem("isLoggedIn", "true");
-                    localStorage.setItem("qr_pos_user", JSON.stringify(guestUser));
-                    if (onLoginSuccess) {
-                      onLoginSuccess(guestUser);
-                    } else {
-                      window.location.reload();
-                    }
-                  } catch (tableError) {
-                    setError(tableError.message || "Unable to assign a new table.");
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
+                onClick={() => switchTab("signup")}
               >
-                Continue as Guest
+                Register Now
               </button>
             </div>
           </form>
@@ -409,8 +427,6 @@ export default function LoginPage({ onLoginSuccess }) {
         {/* ── SIGN UP FORM ────────────────────────── */}
         {tab === "signup" && (
           <form className="login-form" onSubmit={handleSignUp} key="signup">
-            {/* Full Name field removed as requested */}
-
             <div className="login-field">
               <label className="login-label" htmlFor="su-username">Username *</label>
               <div className="login-input-wrap">
@@ -496,12 +512,10 @@ export default function LoginPage({ onLoginSuccess }) {
               <label className="login-label" htmlFor="su-promo">
                 Promo Code
               </label>
-
               <div className="login-input-wrap">
                 <span className="login-input-icon">
                   <UserIcon />
                 </span>
-
                 <input
                   id="su-promo"
                   className="login-input"
@@ -529,7 +543,7 @@ export default function LoginPage({ onLoginSuccess }) {
               Create Account
             </button>
 
-            <div className="login-switch">
+            <div className="login-footer-text">
               Already have an account?{" "}
               <button type="button" onClick={() => switchTab("signin")}>
                 Sign In
@@ -552,7 +566,7 @@ export default function LoginPage({ onLoginSuccess }) {
       {showGiftModal && (
         <div className="login-success-overlay" role="dialog" aria-modal="true">
           <div className="login-success-box" style={{ background: '#ffffff', border: '1px solid #e5e7eb', boxShadow: '0 25px 50px rgba(0,0,0,0.1)' }}>
-            <div className="login-success-icon" style={{ background: 'linear-gradient(135deg, #f97316, #ea6b0e)', boxShadow: '0 0 0 12px rgba(249, 115, 22, 0.15)' }}>
+            <div className="login-success-icon" style={{ background: 'linear-gradient(135deg, var(--theme-color), var(--theme-color-strong))', boxShadow: '0 0 0 12px var(--theme-color-soft)' }}>
               <CheckIcon />
             </div>
             <div className="login-success-title" style={{ color: '#1f2937' }}>Welcome!</div>
@@ -572,7 +586,7 @@ export default function LoginPage({ onLoginSuccess }) {
                 }
 
                 // Login session create
-                localStorage.setItem("isLoggedIn", "true");
+                sessionStorage.setItem("isLoggedIn", "true");
                 localStorage.setItem("qr_pos_user", JSON.stringify(signedUpUser));
 
                 if (signedUpUser?.Promocode) {

@@ -1,15 +1,8 @@
-import { render, screen } from '@testing-library/react';
-
-jest.mock('react-router-dom', () => {
-  const React = require('react');
-  return {
-    BrowserRouter: ({ children }) => <>{children}</>,
-    Routes: ({ children }) => <>{children}</>,
-    Route: ({ element }) => <>{element}</>,
-  };
-});
+import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import App from './App';
+import SettlementSuccess from './SettlementSuccess';
 
 beforeEach(() => {
   localStorage.clear();
@@ -55,10 +48,52 @@ afterEach(() => {
 
 test('shows the login page on first load when the user is not logged in', async () => {
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={['/']}>
       <App />
     </MemoryRouter>
   );
 
-  expect(await screen.findByText(/Sign In/i)).toBeInTheDocument();
+  expect((await screen.findAllByText(/Sign In/i)).length).toBeGreaterThan(0);
+});
+
+test('shows a theme color picker in the settings modal', async () => {
+  localStorage.setItem('isLoggedIn', 'true');
+  render(
+    <MemoryRouter initialEntries={['/']}>
+      <App />
+    </MemoryRouter>
+  );
+
+  fireEvent.click(await screen.findByTitle(/Appearance Settings/i));
+
+  expect(await screen.findByText(/Theme Color/i)).toBeInTheDocument();
+  expect(screen.getByLabelText(/^Theme color$/i)).toBeInTheDocument();
+});
+
+test('shows only the last four digits of the order number on the confirmation screen', async () => {
+  global.fetch.mockImplementation((url) => {
+    if (String(url).includes('/api/order/order-details/')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => [{ OrderNumber: '20240008209', Tableno: '2' }],
+      });
+    }
+
+    return Promise.resolve({
+      ok: true,
+      json: async () => [],
+    });
+  });
+
+  render(
+    <MemoryRouter initialEntries={['/settlement-success?tableId=abc&table=2&orderId=123']}>
+      <Routes>
+        <Route path="/settlement-success" element={<SettlementSuccess />} />
+      </Routes>
+    </MemoryRouter>
+  );
+
+  expect(await screen.findByText(/Order No:/i)).toBeInTheDocument();
+  expect(await screen.findByText('8209')).toBeInTheDocument();
+  expect(screen.queryByText(/20240008209/i)).not.toBeInTheDocument();
 });
