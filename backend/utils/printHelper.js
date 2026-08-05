@@ -125,11 +125,13 @@ function formatKOTThermalText(data, itemsForPrinter, type) {
   const title =
     type === "KDS_PRINT"
       ? "KDS PRINT"
-      : type === "REPRINT"
-        ? "REPRINT"
-        : type === "ADDITIONAL"
-          ? "ADDITIONAL"
-          : "NEW ORDER";
+      : type === "ADDITIONAL_KDS_PRINT"
+        ? "KDS PRINT (UPDATE)"
+        : type === "REPRINT"
+          ? "REPRINT"
+          : type === "ADDITIONAL"
+            ? "ADDITIONAL"
+            : "NEW ORDER";
   const tableNo = data.tableNo || "N/A";
   const waiter = data.waiterName || "Staff";
   const orderNo = data.orderNo || data.orderId || "";
