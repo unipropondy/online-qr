@@ -5,7 +5,8 @@ const sql = require("mssql");
 const { poolPromise } = require("../config/db");
 const {
   generateAndQueueKOTs,
-  generateAndQueueReceipt
+  generateAndQueueReceipt,
+  reprintKOT
 } = require("../utils/printHelper");
 const DEFAULT_GUID = "00000000-0000-0000-0000-000000000000";
 
@@ -236,14 +237,14 @@ async function syncToProfessionalTables(transaction, tableId, displayOrderId, it
         .input("mods", sql.NVarChar(sql.MAX), modsJSON)
         .input("combo", sql.NVarChar(sql.MAX), comboDetailsJSON)
         .query(`
-          SELECT TOP 1 OrderDetailId
+          SELECT TOP 1 OrderDetailId, StatusCode
           FROM RestaurantOrderDetailCur
           WHERE OrderId = @orderId
             AND DishId = @dishId
             AND ISNULL(CAST(ModifiersJSON AS NVARCHAR(MAX)), '') =
                 ISNULL(@mods, '')
                 AND ISNULL(CAST(ComboDetailsJSON AS NVARCHAR(MAX)), '') = ISNULL(@combo, '')
-            AND StatusCode NOT IN (2,3,4)
+            AND StatusCode NOT IN (0)  -- Match ANY non-voided item including already-sent (StatusCode=2)
           ORDER BY CreatedOn DESC
         `);
 
@@ -271,16 +272,20 @@ async function syncToProfessionalTables(transaction, tableId, displayOrderId, it
     const detailCheck = await transaction.request().input("detailId", sql.UniqueIdentifier, lineItemId).query("SELECT OrderDetailId,StatusCode FROM RestaurantOrderDetailCur WHERE OrderDetailId = @detailId");
     console.log("DETAIL CHECK:", detailCheck.recordset);
     if (detailCheck.recordset.length > 0) {
-      if (
-        detailCheck.recordset[0].StatusCode !== 4 &&
-        detailCheck.recordset[0].StatusCode !== 3 &&
-        detailCheck.recordset[0].StatusCode !== 2
-      ) {
+      const existingStatus = detailCheck.recordset[0].StatusCode;
+      // ✅ PROFESSIONAL FIX: Never update or re-process already-sent/ready/served items
+      // StatusCode 2=SENT, 3=READY, 4=SERVED → these are FINAL, do NOT reset to 1
+      if (existingStatus === 2 || existingStatus === 3 || existingStatus === 4) {
+        console.log(`[syncToProfessionalTables] SKIP item '${item.name}': already at StatusCode=${existingStatus}, will not re-print.`);
+        continue; // ← Skip this item entirely — it's already been sent to kitchen
+      }
+      // StatusCode 0=VOIDED, 1=NEW, 5=HOLD → update is OK
+      if (existingStatus !== 4 && existingStatus !== 3 && existingStatus !== 2) {
         await transaction.request()
           .input("detailId", sql.UniqueIdentifier, lineItemId)
           .input("qty", sql.Int, item.qty || 1)
           .input("cost", sql.Decimal(18, 2), unitPrice)
-          .input("statusCode", sql.Int, currentStatusCode)
+          .input("statusCode", sql.Int, 1) // Keep as 1 so KOT picks it up
           .input(
             "userId",
             sql.UniqueIdentifier,
@@ -1175,6 +1180,21 @@ router.post("/log-print", async (req, res) => {
     await pool.request().input("oid", sql.UniqueIdentifier, orderId && orderId.length > 30 ? orderId : null).input("ono", sql.VarChar(50), orderNumber).input("pt", sql.Int, printType || 1).query("INSERT INTO PrintReport (OrderId, Ordernumber, PrintType, orderDate) VALUES (@oid, @ono, @pt, GETDATE())");
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// POST /api/order/reprint-kot  — queue a REPRINT for all items of an order
+// Called from POS cashier screen to re-send KOT to kitchen/KDS printers
+router.post("/reprint-kot", async (req, res) => {
+  try {
+    const { orderId } = req.body;
+    if (!orderId) return res.status(400).json({ success: false, error: "orderId is required" });
+    console.log(`[reprint-kot] Manual reprint requested for order: ${orderId}`);
+    await reprintKOT(orderId);
+    res.json({ success: true, message: `Reprint queued for ${orderId}` });
+  } catch (err) {
+    console.error("[reprint-kot] Error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 router.post("/delete-cart-item", async (req, res) => {

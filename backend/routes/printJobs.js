@@ -152,16 +152,12 @@ router.post('/', authenticateBridge, async (req, res) => {
       const checkPrinter = await pool.request()
         .input('KitchenTypeValue', sql.NVarChar(50), kitchenTypeValue ? String(kitchenTypeValue) : '0')
         .query(`
-          SELECT IsActive, IsEnabled, PrinterIP, PrinterName 
+          SELECT IsActive, PrinterIP, PrinterName 
           FROM PrintMaster 
           WHERE PrinterType = 2 AND CAST(KitchenTypeValue AS VARCHAR(50)) = CAST(@KitchenTypeValue AS VARCHAR(50)) AND IsActive = 1
         `);
       if (checkPrinter.recordset.length > 0) {
         const kp = checkPrinter.recordset[0];
-        if (kp.IsEnabled === false || kp.IsEnabled === 0) {
-          console.log(`📡 [printJobs] Skipping print job for KitchenTypeValue ${kitchenTypeValue} because it is disabled.`);
-          return res.json({ success: true, message: 'Print job skipped (printer disabled)' });
-        }
         printerIp = kp.PrinterIP || '';
         printerName = kp.PrinterName || '';
       }
