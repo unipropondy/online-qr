@@ -367,19 +367,10 @@ async function generateAndQueueKOTs(orderId) {
                 `);
 
             let kotType = "NEW_ORDER";
-            let hasPending = false;
             
             if (dupCheck.recordset.length > 0) {
-                // Check if there is ANY pending/processing job for this printer and order
-                hasPending = dupCheck.recordset.some(r => r.Status === 'PENDING' || r.Status === 'PROCESSING');
-                
-                // If it already exists in the queue (even if completed), it's an additional order for this kitchen
+                // If it already exists in the queue (even if pending or completed), it's an additional order for this kitchen
                 kotType = "ADDITIONAL";
-            }
-
-            if (hasPending) {
-                console.log(`[generateAndQueueKOTs] SKIP duplicate: Order=${orderHeader.OrderNumber} Printer=${group.printerName} already has PENDING/PROCESSING job`);
-                continue;
             }
 
             const thermalText = formatKOTThermalText(orderData, group.items, kotType);
