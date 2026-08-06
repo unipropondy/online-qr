@@ -123,8 +123,8 @@ function formatThermalTextWithDiscount(saleData, company, discountInfo) {
 
 function formatKOTThermalText(data, itemsForPrinter, type) {
   const title =
-    type === "KDS_PRINT"
-      ? "KDS PRINT"
+    type.includes("KDS")
+      ? (type.includes("ADDITIONAL") ? "ADDITIONAL KDS" : "KDS PRINT")
       : type === "REPRINT"
         ? "REPRINT"
         : type === "ADDITIONAL"
@@ -205,7 +205,7 @@ function formatKOTThermalText(data, itemsForPrinter, type) {
     return t;
   };
 
-  if (type === "KDS_PRINT") {
+  if (type.includes("KDS")) {
     const kitchenGroups = {};
     itemsForPrinter.forEach((item) => {
       const kName = (

@@ -1512,7 +1512,7 @@ router.post("/mark-sent", async (req, res) => {
         orderId: orderId,
         source: "QR",
         paymentType: "cashier",
-        printKOT: true,
+        printKOT: false,
         printBill: false
       });
     }
@@ -1939,7 +1939,7 @@ router.post("/complete-online-payment", async (req, res) => {
         orderId: orderId,
         source: "QR",
         paymentType: "online",
-        printKOT: true,
+        printKOT: false,
         printBill: true
       });
     }
