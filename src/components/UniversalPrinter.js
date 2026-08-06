@@ -27,16 +27,16 @@ function generateItemsTable(items, symbol) {
     </thead>
     <tbody>
       ${items
-        .map(
-          (i) =>
-            `<tr>
+      .map(
+        (i) =>
+          `<tr>
               <td>${i.name}</td>
               <td class="amount">${i.quantity || 0}</td>
               <td class="amount">${symbol}${(i.price || 0).toFixed(2)}</td>
               <td class="amount">${symbol}${(i.revenue || 0).toFixed(2)}</td>
             </tr>`
-        )
-        .join("")}
+      )
+      .join("")}
     </tbody>
   </table>`;
 }
@@ -95,7 +95,7 @@ async function isBridgeOnline() {
 }
 
 async function queuePrintJob(printerType, kitchenTypeValue, content) {
-    console.log("========== QUEUE PRINT ==========");
+  console.log("========== QUEUE PRINT ==========");
   console.log("Printer Type:", printerType);
   console.log("Kitchen Type:", kitchenTypeValue);
   try {
@@ -155,7 +155,7 @@ async function queuePrintJob(printerType, kitchenTypeValue, content) {
 // ─────────────────────────────────────────────
 async function logPrintJob(orderId, orderNo, type) {
   try {
-   await fetch(`${API_URL}/api/order/log-print`, {
+    await fetch(`${API_URL}/api/order/log-print`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -181,10 +181,10 @@ function generateKOTHTML(data, type) {
     type === "KDS_PRINT"
       ? "KDS PRINT"
       : type === "REPRINT"
-      ? "REPRINT"
-      : type === "ADDITIONAL"
-      ? "ADDITIONAL"
-      : (data.kitchenName || data.kitchenTypeName || data.KitchenTypeName || "NEW ORDER");
+        ? "REPRINT"
+        : type === "ADDITIONAL"
+          ? "ADDITIONAL"
+          : (data.kitchenName || data.kitchenTypeName || data.KitchenTypeName || "NEW ORDER");
   title = title.replace(/\s*KOT\s*/gi, "").trim();
 
   const items = data.items || [];
@@ -235,53 +235,46 @@ function generateKOTHTML(data, type) {
           <div class="item-qty">${item.quantity || item.qty || 1}</div>
           <div class="item-name">
             ${item.name || item.Name || item.DishName || item.ProductName || "Item"}
-            ${
-              item.songName || item.SongName
-                ? `<div style="font-size:20px;font-weight:normal;color:#555;margin-top:4px;">🎵 ${
-                    item.songName || item.SongName
-                  }</div>`
-                : ""
-            }
+            ${item.songName || item.SongName
+        ? `<div style="font-size:20px;font-weight:normal;color:#555;margin-top:4px;">🎵 ${item.songName || item.SongName
+        }</div>`
+        : ""
+      }
           </div>
         </div>
-        ${
-          isTakeaway
-            ? `<div class="modifier-list"><span class="modifier-item" style="font-weight:bold;">- Takeaway</span></div>`
-            : ""
-        }
-        ${
-          item.modifiers && item.modifiers.length > 0
-            ? `<div class="modifier-list">${item.modifiers
-                .map(
-                  (m) =>
-                    `<span class="modifier-item">- ${
-                      m.name || m.ModifierName
-                    }</span>`
-                )
-                .join("")}</div>`
-            : ""
-        }
-        ${
-          hasCombo
-            ? `<div class="modifier-list">${comboSels
-                .map(
-                  (g) => `
+        ${isTakeaway
+        ? `<div class="modifier-list"><span class="modifier-item" style="font-weight:bold;">- Takeaway</span></div>`
+        : ""
+      }
+        ${item.modifiers && item.modifiers.length > 0
+        ? `<div class="modifier-list">${item.modifiers
+          .map(
+            (m) =>
+              `<span class="modifier-item">- ${m.name || m.ModifierName
+              }</span>`
+          )
+          .join("")}</div>`
+        : ""
+      }
+        ${hasCombo
+        ? `<div class="modifier-list">${comboSels
+          .map(
+            (g) => `
                   <div style="font-weight:bold;margin-top:2px;">${g.groupName}:</div>
-                  ${
-                    g.items
-                      ? g.items
-                          .map(
-                            (opt) =>
-                              `<span class="modifier-item" style="padding-left:10px;">↳ ${opt.name}</span>`
-                          )
-                          .join("")
-                      : ""
-                  }
+                  ${g.items
+                ? g.items
+                  .map(
+                    (opt) =>
+                      `<span class="modifier-item" style="padding-left:10px;">↳ ${opt.name}</span>`
+                  )
+                  .join("")
+                : ""
+              }
                 `
-                )
-                .join("")}</div>`
-            : ""
-        }
+          )
+          .join("")}</div>`
+        : ""
+      }
         ${noteText ? `<div class="remarks">* NOTE: ${noteText}</div>` : ""}
       </div>`;
   };
@@ -344,14 +337,13 @@ function generateKOTHTML(data, type) {
   <div class="kot-container">
     <div class="header-box">${title}</div>
     <div class="timestamp">${timestamp}</div>
-    <div class="table-info"><span>Table: ${tableNo}</span></div>
+    <div class="table-info"><span>Takeaway: ${tableNo}</span></div>
     <div class="headers"><div class="qty-head">Qty</div><div>Item</div></div>
     <div class="item-list">${itemListHTML}</div>
     <div class="footer">Order By : ${waiter} #OR-${orderNo}</div>
-    ${
-      kitchenName && kitchenName !== "KDS"
-        ? `<div class="kitchen-name">${kitchenName}</div>`
-        : ""
+    ${kitchenName && kitchenName !== "KDS"
+      ? `<div class="kitchen-name">${kitchenName}</div>`
+      : ""
     }
   </div>
 </body>
@@ -366,10 +358,10 @@ function formatKOTThermalText(data, type) {
     type === "KDS_PRINT"
       ? "KDS PRINT"
       : type === "REPRINT"
-      ? "REPRINT"
-      : type === "ADDITIONAL"
-      ? "ADDITIONAL"
-      : (data.kitchenName || data.kitchenTypeName || data.KitchenTypeName || "NEW ORDER");
+        ? "REPRINT"
+        : type === "ADDITIONAL"
+          ? "ADDITIONAL"
+          : (data.kitchenName || data.kitchenTypeName || data.KitchenTypeName || "NEW ORDER");
   const items = data.items || [];
   const tableNo = data.tableNo || "N/A";
   const waiter = data.waiterName || "Staff";
@@ -391,7 +383,7 @@ function formatKOTThermalText(data, type) {
   let text = `[C]<B>${title}</B>\n`;
   text += `[C]${kotDateStr} ${kotTimeStr}\n`;
   text += "[L]--------------------------------\n";
-  text += `[C]<font size='big'>TABLE: ${tableNo}</font>\n`;
+  text += `[C]<font size='big'>Takeaway: ${tableNo}</font>\n`;
   text += "[L]--------------------------------\n";
   text += "[L]QTY  ITEM\n";
   text += "[L]--------------------------------\n";
@@ -499,7 +491,7 @@ function formatThermalTextWithDiscount(saleData, company, discountInfo) {
 
   const tableNo = saleData.tableNo || "";
   const orderNo = saleData.orderNo || saleData.id || saleData.saleId || "";
-  if (tableNo) text += `[L]Table: ${tableNo}\n`;
+  if (tableNo) text += `[L]Takeaway: ${tableNo}\n`;
   if (orderNo) text += `[L]Order #: ${orderNo}\n`;
   text += "[L]================================\n";
   text += "[L]Item                   Qty  Total\n";
@@ -622,7 +614,7 @@ function generateReceiptHTML(saleData, company, discountInfo) {
   ${company.phone ? `<div class="center">Tel: ${company.phone}</div>` : ""}
   <div class="center">${formatToSingaporeDate(now)} ${formatToSingaporeTime(now)}</div>
   <div class="divider-solid"></div>
-  ${tableNo ? `<div>Table: <b>${tableNo}</b></div>` : ""}
+  ${tableNo ? `<div>Takeaway: <b>${tableNo}</b></div>` : ""}
   ${orderNo ? `<div>Order #: <b>${orderNo}</b></div>` : ""}
   <div class="divider"></div>
 
@@ -634,39 +626,37 @@ function generateReceiptHTML(saleData, company, discountInfo) {
   <div class="divider"></div>
 
   ${items
-    .map(
-      (item) => `
+      .map(
+        (item) => `
     <div class="item-row">
       <span class="item-name">${item.name || item.Name || item.DishName || item.ProductName || "Item"}</span>
       <span class="item-qty">${item.quantity || item.qty || 1}</span>
       <span class="item-total">${symbol}${(
-        (item.price || 0) * (item.quantity || item.qty || 1)
-      ).toFixed(2)}</span>
+            (item.price || 0) * (item.quantity || item.qty || 1)
+          ).toFixed(2)}</span>
     </div>
-    ${
-      item.modifiers && item.modifiers.length > 0
-        ? item.modifiers
-            .map(
-              (m) =>
-                `<div class="modifier">+ ${m.name || m.ModifierName}</div>`
-            )
-            .join("")
-        : ""
-    }`
-    )
-    .join("")}
+    ${item.modifiers && item.modifiers.length > 0
+            ? item.modifiers
+              .map(
+                (m) =>
+                  `<div class="modifier">+ ${m.name || m.ModifierName}</div>`
+              )
+              .join("")
+            : ""
+          }`
+      )
+      .join("")}
 
   <div class="divider"></div>
 
   <div class="summary-row"><span>Subtotal</span><span>${symbol}${Number(subtotal).toFixed(2)}</span></div>
-  ${
-    discountInfo && discountInfo.applied && discountInfo.amount > 0
+  ${discountInfo && discountInfo.applied && discountInfo.amount > 0
       ? `<div class="summary-row discount-row">
           <span>Discount${discountInfo.type === "percentage" ? ` (${discountInfo.value}%)` : ""}</span>
           <span>-${symbol}${Number(discountInfo.amount).toFixed(2)}</span>
         </div>`
       : ""
-  }
+    }
   ${serviceCharge > 0 ? `<div class="summary-row"><span>Service Charge</span><span>${symbol}${Number(serviceCharge).toFixed(2)}</span></div>` : ""}
   ${gst > 0 ? `<div class="summary-row"><span>GST</span><span>${symbol}${Number(gst).toFixed(2)}</span></div>` : ""}
 
@@ -764,19 +754,18 @@ function generateCategoryDetailHTML(categoryName, items, transactions, company, 
     </div>
     <div class="section-title">📋 Items Sold</div>${generateItemsTable(items, symbol)}
     <div class="section-title">📄 Transaction History</div>
-    ${
-      transactions.length
-        ? groupTransactions(transactions)
-            .map(
-              (sale) =>
-                `<div class="transaction-card">
+    ${transactions.length
+      ? groupTransactions(transactions)
+        .map(
+          (sale) =>
+            `<div class="transaction-card">
                   <div><strong>#${sale.id}</strong> - ${symbol}${sale.total.toFixed(2)}</div>
                   <div>${formatToSingaporeDateTime(sale.date)}</div>
                   ${sale.items.map((item) => `<div>• ${item.name || item.Name || item.DishName || "Item"} x${item.quantity} - ${symbol}${(item.price * item.quantity).toFixed(2)}</div>`).join("")}
                 </div>`
-            )
-            .join("")
-        : "<p>No transactions</p>"
+        )
+        .join("")
+      : "<p>No transactions</p>"
     }
     <div class="footer"><p>End of Report</p></div>
   </body></html>`;
@@ -809,8 +798,8 @@ function generateAllCategoriesHTML(categories, company, options) {
     </div>
     <div><h3>💳 PAYMENT BREAKDOWN</h3>
       ${Object.entries(summary.paymentBreakdown)
-        .map(([m, a]) => `<div>${m}: ${symbol}${Number(a).toFixed(2)}</div>`)
-        .join("")}
+      .map(([m, a]) => `<div>${m}: ${symbol}${Number(a).toFixed(2)}</div>`)
+      .join("")}
     </div>
     ${categories
       .map(
@@ -872,12 +861,12 @@ const UniversalPrinter = {
       const company = await BillPDFGenerator.loadSettings(userId);
       const html = selectedCategory
         ? generateCategoryDetailHTML(
-            selectedCategory,
-            categoryItems,
-            categoryTransactions,
-            company,
-            options
-          )
+          selectedCategory,
+          categoryItems,
+          categoryTransactions,
+          company,
+          options
+        )
         : generateAllCategoriesHTML(categories, company, options);
       printHtmlInIframe("category-report-iframe", html, 400);
       return true;
@@ -954,90 +943,90 @@ const UniversalPrinter = {
   //   }
   // },
   // ── KOT Print ───────────────────────────────
-async printKOT(orderData, userId, type = "NEW", printerIpOverride) {
+  async printKOT(orderData, userId, type = "NEW", printerIpOverride) {
 
-  console.log("========== KOT PRINT START ==========");
-  console.log("Order Data:", orderData);
-  console.log("Items:", orderData.items);
+    console.log("========== KOT PRINT START ==========");
+    console.log("Order Data:", orderData);
+    console.log("Items:", orderData.items);
 
-  try {
+    try {
 
-    console.log("Checking Bridge Status...");
+      console.log("Checking Bridge Status...");
 
-    const isOnline = await isBridgeOnline();
+      const isOnline = await isBridgeOnline();
 
-    console.log("Bridge Online:", isOnline);
+      console.log("Bridge Online:", isOnline);
 
-    if (!isOnline) {
-      console.log("📡 Bridge OFFLINE - iframe fallback");
+      if (!isOnline) {
+        console.log("📡 Bridge OFFLINE - iframe fallback");
+
+        printHtmlInIframe(
+          "kot-print-iframe",
+          generateKOTHTML(orderData, type),
+          50
+        );
+
+        await logPrintJob(orderData.orderId, orderData.orderNo, type);
+
+        return true;
+      }
+
+      console.log("Generating Thermal Text...");
+
+      const text = formatKOTThermalText(orderData, type);
+
+      console.log(text);
+
+      const kitchenTypeValue =
+        orderData.kitchenCode ||
+        orderData.KitchenCode ||
+        orderData.kitchenTypeValue ||
+        orderData.KitchenTypeValue ||
+        "0";
+
+      console.log("Kitchen Type:", kitchenTypeValue);
+
+      console.log("Sending Print Job...");
+
+      const success = await queuePrintJob(2, kitchenTypeValue, text);
+
+      console.log("Queue Result:", success);
+
+      if (success) {
+        console.log("✅ Print Success");
+
+        await logPrintJob(orderData.orderId, orderData.orderNo, type);
+
+        return true;
+      }
+
+      console.warn("⚠️ Queue Failed - iframe fallback");
 
       printHtmlInIframe(
         "kot-print-iframe",
         generateKOTHTML(orderData, type),
-        50
+        800
+      );
+
+      await logPrintJob(orderData.orderId, orderData.orderNo, type);
+
+      return true;
+
+    } catch (err) {
+
+      console.error("PRINT ERROR:", err);
+
+      printHtmlInIframe(
+        "kot-print-iframe",
+        generateKOTHTML(orderData, type),
+        800
       );
 
       await logPrintJob(orderData.orderId, orderData.orderNo, type);
 
       return true;
     }
-
-    console.log("Generating Thermal Text...");
-
-    const text = formatKOTThermalText(orderData, type);
-
-    console.log(text);
-
-    const kitchenTypeValue =
-      orderData.kitchenCode ||
-      orderData.KitchenCode ||
-      orderData.kitchenTypeValue ||
-      orderData.KitchenTypeValue ||
-      "0";
-
-    console.log("Kitchen Type:", kitchenTypeValue);
-
-    console.log("Sending Print Job...");
-
-    const success = await queuePrintJob(2, kitchenTypeValue, text);
-
-    console.log("Queue Result:", success);
-
-    if (success) {
-      console.log("✅ Print Success");
-
-      await logPrintJob(orderData.orderId, orderData.orderNo, type);
-
-      return true;
-    }
-
-    console.warn("⚠️ Queue Failed - iframe fallback");
-
-    printHtmlInIframe(
-      "kot-print-iframe",
-      generateKOTHTML(orderData, type),
-      800
-    );
-
-    await logPrintJob(orderData.orderId, orderData.orderNo, type);
-
-    return true;
-
-  } catch (err) {
-
-    console.error("PRINT ERROR:", err);
-
-    printHtmlInIframe(
-      "kot-print-iframe",
-      generateKOTHTML(orderData, type),
-      800
-    );
-
-    await logPrintJob(orderData.orderId, orderData.orderNo, type);
-
-    return true;
-  }
-},
+  },
 
   // ── Smart Print (Receipt with Discount) ──────
   async smartPrint(saleData, outletId, t, discountInfo, preferredType, isReprint = false) {
