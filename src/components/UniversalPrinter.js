@@ -344,7 +344,7 @@ function generateKOTHTML(data, type) {
   <div class="kot-container">
     <div class="header-box">${title}</div>
     <div class="timestamp">${timestamp}</div>
-    <div class="table-info"><span>Table: ${tableNo}</span></div>
+    <div class="table-info"><span>${data.isTakeawayOrder ? "TAKEAWAY NO" : "Table"}: ${tableNo}</span></div>
     <div class="headers"><div class="qty-head">Qty</div><div>Item</div></div>
     <div class="item-list">${itemListHTML}</div>
     <div class="footer">Order By : ${waiter} #OR-${orderNo}</div>
@@ -391,7 +391,8 @@ function formatKOTThermalText(data, type) {
   let text = `[C]<B>${title}</B>\n`;
   text += `[C]${kotDateStr} ${kotTimeStr}\n`;
   text += "[L]--------------------------------\n";
-  text += `[C]<font size='big'>TABLE: ${tableNo}</font>\n`;
+  const tableLabel = data.isTakeawayOrder ? "TAKEAWAY NO" : "TABLE";
+  text += `[C]<font size='big'>${tableLabel}: ${tableNo}</font>\n`;
   text += "[L]--------------------------------\n";
   text += "[L]QTY  ITEM\n";
   text += "[L]--------------------------------\n";
@@ -499,7 +500,10 @@ function formatThermalTextWithDiscount(saleData, company, discountInfo) {
 
   const tableNo = saleData.tableNo || "";
   const orderNo = saleData.orderNo || saleData.id || saleData.saleId || "";
-  if (tableNo) text += `[L]Table: ${tableNo}\n`;
+  if (tableNo) {
+    const tableLabel = saleData.isTakeawayOrder ? "Takeaway No" : "Table";
+    text += `[L]${tableLabel}: ${tableNo}\n`;
+  }
   if (orderNo) text += `[L]Order #: ${orderNo}\n`;
   text += "[L]================================\n";
   text += "[L]Item                   Qty  Total\n";
@@ -622,7 +626,7 @@ function generateReceiptHTML(saleData, company, discountInfo) {
   ${company.phone ? `<div class="center">Tel: ${company.phone}</div>` : ""}
   <div class="center">${formatToSingaporeDate(now)} ${formatToSingaporeTime(now)}</div>
   <div class="divider-solid"></div>
-  ${tableNo ? `<div>Table: <b>${tableNo}</b></div>` : ""}
+  ${tableNo ? `<div>${saleData.isTakeawayOrder ? "Takeaway No" : "Table"}: <b>${tableNo}</b></div>` : ""}
   ${orderNo ? `<div>Order #: <b>${orderNo}</b></div>` : ""}
   <div class="divider"></div>
 
