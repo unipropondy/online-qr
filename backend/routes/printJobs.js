@@ -44,16 +44,23 @@ router.get('/bridge-status', (req, res) => {
 });
 
 // 2. GET /api/print-jobs/pending - Fetch pending jobs for the store
+// IMPORTANT: Returns at most ONE job per unique PrinterIp to prevent TCP connection
+// saturation on thermal printers (they only accept one connection at a time).
+// The bridge will poll again quickly and pick up the next job.
 router.get('/pending', authenticateBridge, async (req, res) => {
   lastBridgeActivity = Date.now();
   lastBridgeIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   const pool = await poolPromise;
+
+  // ♻️ First: recover any stuck PROCESSING jobs before dispatching new ones
+  await recoverStuckJobs(pool);
+
   const transaction = new sql.Transaction(pool);
 
   try {
     await transaction.begin();
     
-    // Select pending jobs
+    // Select ALL pending jobs ordered by creation time
     const selectReq = new sql.Request(transaction);
     const result = await selectReq
       .input('StoreId', sql.NVarChar(50), req.storeId)
@@ -64,10 +71,24 @@ router.get('/pending', authenticateBridge, async (req, res) => {
         ORDER BY CreatedOn ASC
       `);
 
-    const jobs = result.recordset || [];
+    const allJobs = result.recordset || [];
+
+    // ─── SERIAL DELIVERY: Pick ONE job per unique PrinterIp ───────────────────
+    // Thermal printers only accept one TCP connection at a time.
+    // Sending multiple jobs to the same IP simultaneously causes timeout failures.
+    // We return one job per IP — bridge processes them, then polls again for more.
+    const seenIps = new Set();
+    const jobs = [];
+    for (const job of allJobs) {
+      const ip = normalizeIp(job.PrinterIp);
+      if (!seenIps.has(ip)) {
+        seenIps.add(ip);
+        jobs.push(job);
+      }
+    }
 
     if (jobs.length > 0) {
-      // Mark them as PROCESSING
+      // Mark selected jobs as PROCESSING
       const jobIds = jobs.map(j => `'${j.JobId}'`).join(',');
       const updateReq = new sql.Request(transaction);
       await updateReq.query(`
@@ -75,6 +96,7 @@ router.get('/pending', authenticateBridge, async (req, res) => {
         SET Status = 'PROCESSING', ProcessedOn = GETDATE(), Attempts = Attempts + 1
         WHERE JobId IN (${jobIds})
       `);
+      console.log(`[print-jobs/pending] Dispatching ${jobs.length} job(s) (1 per IP) out of ${allJobs.length} pending total.`);
     }
 
     await transaction.commit();
@@ -86,6 +108,27 @@ router.get('/pending', authenticateBridge, async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// ── Stuck Job Recovery ────────────────────────────────────────────────────────
+// If a PROCESSING job hasn't been completed/failed within 10 seconds, the bridge
+// probably timed out or crashed. Reset it to PENDING so it gets retried.
+// This runs automatically before each /pending call (via a DB query).
+async function recoverStuckJobs(pool) {
+  try {
+    const result = await pool.request().query(`
+      UPDATE PrintJobQueue
+      SET Status = 'PENDING', ErrorMessage = 'Auto-recovered from stuck PROCESSING state'
+      WHERE Status = 'PROCESSING'
+        AND ProcessedOn < DATEADD(SECOND, -10, GETDATE())
+        AND Attempts < 5
+    `);
+    if (result.rowsAffected[0] > 0) {
+      console.log(`[print-jobs] ♻️ Recovered ${result.rowsAffected[0]} stuck PROCESSING job(s) back to PENDING.`);
+    }
+  } catch (err) {
+    console.error('[print-jobs] Stuck job recovery error:', err.message);
+  }
+}
 
 // 3. POST /api/print-jobs/:jobId/complete - Mark job as completed
 router.post('/:jobId/complete', authenticateBridge, async (req, res) => {
