@@ -75,9 +75,23 @@ router.get('/pending', authenticateBridge, async (req, res) => {
 
     // ─── SERIAL DELIVERY: Pick ONE job per unique PrinterIp ───────────────────
     // Thermal printers only accept one TCP connection at a time.
-    // Sending multiple jobs to the same IP simultaneously causes timeout failures.
-    // We return one job per IP — bridge processes them, then polls again for more.
+    // We must ensure we only send ONE job per IP.
+    // IMPORTANT: If an IP already has a job in 'PROCESSING', it means the bridge
+    // is currently printing to it. We MUST NOT send another job for that IP yet,
+    // otherwise the bridge will try to open a simultaneous connection.
+    
+    // 1. Get IPs that are currently PROCESSING
+    const processingReq = new sql.Request(transaction);
+    const processingRes = await processingReq.query(`
+      SELECT DISTINCT PrinterIp 
+      FROM PrintJobQueue 
+      WHERE Status = 'PROCESSING'
+    `);
     const seenIps = new Set();
+    for (const row of processingRes.recordset || []) {
+      seenIps.add(normalizeIp(row.PrinterIp));
+    }
+
     const jobs = [];
     for (const job of allJobs) {
       const ip = normalizeIp(job.PrinterIp);
