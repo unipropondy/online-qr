@@ -1972,14 +1972,14 @@ router.post("/assign-takeaway-table", async (req, res) => {
     const pool = await poolPromise;
 
     // Find a free takeaway table (DiningSection = 4, Status = 0 = available)
-    const tableRes = await pool.request().query(`
-      SELECT TOP 1 TableId, TableNumber
-      FROM TableMaster
-      WHERE DiningSection = 4
-        AND (Status = 0 OR Status IS NULL)
-        AND (CurrentOrderId IS NULL OR CurrentOrderId = '' OR CurrentOrderId = 'NEW')
-      ORDER BY TableNumber ASC
-    `);
+    // const tableRes = await pool.request().query(`
+    //   SELECT TOP 1 TableId, TableNumber
+    //   FROM TableMaster
+    //   WHERE DiningSection = 4
+    //     AND (Status = 0 OR Status IS NULL)
+    //     AND (CurrentOrderId IS NULL OR CurrentOrderId = '' OR CurrentOrderId = 'NEW')
+    //   ORDER BY TableNumber ASC
+    // `);
 
     if (tableRes.recordset.length === 0) {
       // Fallback: return any takeaway table even if occupied
