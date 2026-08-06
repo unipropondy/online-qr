@@ -255,12 +255,22 @@ async function syncToProfessionalTables(transaction, tableId, displayOrderId, it
       console.log("Found :", matchCheck.recordset);
 
       if (matchCheck.recordset.length > 0) {
-        lineItemId = matchCheck.recordset[0].OrderDetailId;
+        const matchedStatus = matchCheck.recordset[0].StatusCode;
+        if (matchedStatus === 2) {
+          // ✅ Already SENT to kitchen → INSERT a brand-new record for this additional order
+          console.log(`[syncToProfessionalTables] Dish '${item.name}' matched a StatusCode=2 record. Forcing NEW INSERT.`);
+          lineItemId = crypto.randomUUID();
+        } else if (matchedStatus === 1) {
+          // ✅ Still a draft (StatusCode=1) → reuse existing ID so it UPDATEs in place
+          lineItemId = matchCheck.recordset[0].OrderDetailId;
+        } else {
+          // StatusCode 3=READY, 4=SERVED → treat as completed, insert new
+          lineItemId = crypto.randomUUID();
+        }
       } else {
         lineItemId = crypto.randomUUID();
       }
     }
-    // const comboDetailsJSON = JSON.stringify(item.comboSelections || []).substring(0, 4000);
 
     console.log("MATCH LINEITEM:", lineItemId);
     console.log("ITEM:", item.name);
@@ -273,11 +283,10 @@ async function syncToProfessionalTables(transaction, tableId, displayOrderId, it
     console.log("DETAIL CHECK:", detailCheck.recordset);
     if (detailCheck.recordset.length > 0) {
       const existingStatus = detailCheck.recordset[0].StatusCode;
-      // ✅ PROFESSIONAL FIX: Never update or re-process already-sent/ready/served items
-      // StatusCode 2=SENT, 3=READY, 4=SERVED → these are FINAL, do NOT reset to 1
-      if (existingStatus === 2 || existingStatus === 3 || existingStatus === 4) {
-        console.log(`[syncToProfessionalTables] SKIP item '${item.name}': already at StatusCode=${existingStatus}, will not re-print.`);
-        continue; // ← Skip this item entirely — it's already been sent to kitchen
+      // StatusCode 3=READY, 4=SERVED → skip, these are final.
+      if (existingStatus === 3 || existingStatus === 4) {
+        console.log(`[syncToProfessionalTables] SKIP item '${item.name}': already at StatusCode=${existingStatus} (READY/SERVED), will not re-print.`);
+        continue;
       }
       // StatusCode 0=VOIDED, 1=NEW, 5=HOLD → update is OK
       if (existingStatus !== 4 && existingStatus !== 3 && existingStatus !== 2) {
