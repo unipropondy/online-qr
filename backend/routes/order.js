@@ -689,10 +689,14 @@ router.post("/send", async (req, res) => {
                 (SELECT LTRIM(RTRIM(TableNumber))
                 FROM TableMaster
                 WHERE TableId = @tableId))
-            AND d.StatusCode NOT IN (2,3,4)
+            AND d.StatusCode = 1
         `);
 
-      if (alreadySent.recordset[0].cnt === 0) {
+      // ✅ FIX: If there are no StatusCode=1 items, this means:
+      // 1. Another device already sent this order (all flipped to 2), OR
+      // 2. The cart is genuinely empty (user refreshed)
+      // We should only block if the client actually sent items but none are NEW.
+      if (clientItems.length > 0 && alreadySent.recordset[0].cnt === 0) {
         return res.json({
           success: false,
           message: "Order already placed by another device."

@@ -1233,6 +1233,19 @@ function App() {
   const placeOrder = async () => {
     setIsCartLoading(true);
     try {
+      // ✅ FIX: Wait for any in-flight save to complete before placing order.
+      // Without this, rapidly-added items may not yet be persisted in the DB
+      // when /send is called, causing the backend to only see 2 out of 8 items.
+      if (pendingSaveRef.current) {
+        try { await pendingSaveRef.current; } catch (_) { }
+      }
+
+      // ✅ FIX: Only send NEW items to the backend.
+      // Sending SENT items causes the backend syncToProfessionalTables to find
+      // the matching SENT record and SKIP it (since it's already been printed).
+      // This was causing previously-sent items to count as "already placed"
+      // and block the new items from being recognised.
+      const newItems = cart.filter(item => item.status === "NEW");
 
       const payload = {
 
@@ -1242,7 +1255,7 @@ function App() {
 
         userId: "00000000-0000-0000-0000-000000000000",
 
-        items: cart.map((item) => ({
+        items: newItems.map((item) => ({
 
           id: item.DishId || item.id,
 
@@ -1264,15 +1277,11 @@ function App() {
             })),
 
           comboSelections: item.comboSelections || [],
-          // lineItemId: item.lineItemId || item.OrderDetailId || null,
-          lineItemId:
-            item.status === "NEW"
-              ? null
-              : (item.lineItemId || item.OrderDetailId || null),
+          lineItemId: item.lineItemId || item.OrderDetailId || null,
 
           note: item.note || "",
 
-          status: item.status || "NEW",
+          status: "NEW",
         })),
       };
 
