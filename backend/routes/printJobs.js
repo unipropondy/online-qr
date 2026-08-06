@@ -60,6 +60,13 @@ router.get('/pending', authenticateBridge, async (req, res) => {
   try {
     await transaction.begin();
     
+    // 🔒 Acquire an exclusive application lock so multiple simultaneous /pending requests 
+    // are processed strictly one after another. This completely eliminates race conditions 
+    // where two requests read the same queue state before either can commit its updates.
+    await (new sql.Request(transaction)).query(`
+      EXEC sp_getapplock @Resource = 'PrintJobQueueDispatchLock', @LockMode = 'Exclusive', @LockTimeout = 5000
+    `);
+
     // Select ALL pending jobs ordered by creation time
     const selectReq = new sql.Request(transaction);
     const result = await selectReq
