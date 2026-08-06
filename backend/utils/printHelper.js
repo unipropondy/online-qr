@@ -431,6 +431,13 @@ async function generateAndQueueKOTs(orderId) {
             const kdsPrinter = kdsPrinterRes.recordset[0];
             const kdsIp = kdsPrinter.PrinterIP;
 
+            // Prevent duplicate print if KDS IP is the same as any kitchen printer IP
+            const alreadyPrintedToIp = Object.values(printerGroups).some(group => group.printerIp === kdsIp);
+            if (alreadyPrintedToIp) {
+                console.log(`[generateAndQueueKOTs] SKIPPED KDS print: IP '${kdsIp}' already printed to as a kitchen printer.`);
+                return;
+            }
+
             const isTakeawayOrder = orderHeader.DiningSection == 4 || 
                                     String(orderHeader.tableNo).toUpperCase().startsWith('TW') || 
                                     String(orderHeader.tableNo).toUpperCase() === 'TAKEAWAY';
