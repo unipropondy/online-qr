@@ -1953,7 +1953,7 @@ router.post("/complete-online-payment", async (req, res) => {
         source: "QR",
         paymentType: "online",
         printKOT: false,
-        printBill: false
+        printBill: true
       });
     }
 

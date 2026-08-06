@@ -39,10 +39,7 @@ function formatThermalTextWithDiscount(saleData, company, discountInfo) {
 
   const tableNo = saleData.tableNo || "";
   const orderNo = saleData.orderNo || saleData.id || saleData.saleId || "";
-  if (tableNo) {
-    const tableLabel = saleData.isTakeawayOrder ? "Takeaway No" : "Table";
-    text += `[L]${tableLabel}: ${tableNo}\n`;
-  }
+  if (tableNo) text += `[L]Table: ${tableNo}\n`;
   if (orderNo) text += `[L]Order #: ${orderNo}\n`;
   text += "[L]================================\n";
   text += "[L]Item                   Qty  Total\n";
@@ -154,8 +151,7 @@ function formatKOTThermalText(data, itemsForPrinter, type) {
   let text = `[C]<B>${title}</B>\n`;
   text += `[C]${kotDateStr} ${kotTimeStr}\n`;
   text += "[L]--------------------------------\n";
-  const tableLabel = data.isTakeawayOrder ? "TAKEAWAY NO" : "TABLE";
-  text += `[C]<font size='big'>${tableLabel}: ${tableNo}</font>\n`;
+  text += `[C]<font size='big'>TABLE: ${tableNo}</font>\n`;
   text += "[L]--------------------------------\n";
   text += "[L]QTY  ITEM\n";
   text += "[L]--------------------------------\n";
@@ -261,10 +257,8 @@ async function generateAndQueueKOTs(orderId) {
     const orderRes = await pool.request()
       .input("orderNo", sql.NVarChar(50), orderId)
       .query(`
-        SELECT TOP 1 h.OrderId, h.OrderNumber, LTRIM(RTRIM(h.Tableno)) as tableNo, h.CreatedBy,
-               tm.DiningSection
+        SELECT TOP 1 h.OrderId, h.OrderNumber, LTRIM(RTRIM(h.Tableno)) as tableNo, h.CreatedBy
         FROM RestaurantOrderCur h
-        LEFT JOIN TableMaster tm ON LTRIM(RTRIM(h.Tableno)) = LTRIM(RTRIM(tm.TableNumber))
         WHERE h.OrderNumber = @orderNo
       `);
     
@@ -354,17 +348,12 @@ async function generateAndQueueKOTs(orderId) {
     for (const [pName, group] of Object.entries(printerGroups)) {
         let ip;
         try {
-            const isTakeawayOrder = orderHeader.DiningSection == 4 || 
-                                    String(orderHeader.tableNo).toUpperCase().startsWith('TW') || 
-                                    String(orderHeader.tableNo).toUpperCase() === 'TAKEAWAY';
-
             const orderData = {
                 orderId: orderHeader.OrderId,
                 orderNo: orderHeader.OrderNumber,
                 tableNo: orderHeader.tableNo,
                 waiterName: "QR POS", // Since it's from QR
-                kitchenName: group.printerName,
-                isTakeawayOrder
+                kitchenName: group.printerName
             };
 
             const dupCheck = await pool.request()
@@ -431,24 +420,12 @@ async function generateAndQueueKOTs(orderId) {
             const kdsPrinter = kdsPrinterRes.recordset[0];
             const kdsIp = kdsPrinter.PrinterIP;
 
-            // Prevent duplicate print if KDS IP is the same as any kitchen printer IP
-            const alreadyPrintedToIp = Object.values(printerGroups).some(group => group.printerIp === kdsIp);
-            if (alreadyPrintedToIp) {
-                console.log(`[generateAndQueueKOTs] SKIPPED KDS print: IP '${kdsIp}' already printed to as a kitchen printer.`);
-                return;
-            }
-
-            const isTakeawayOrder = orderHeader.DiningSection == 4 || 
-                                    String(orderHeader.tableNo).toUpperCase().startsWith('TW') || 
-                                    String(orderHeader.tableNo).toUpperCase() === 'TAKEAWAY';
-
             const orderData = {
                 orderId: orderHeader.OrderId,
                 orderNo: orderHeader.OrderNumber,
                 tableNo: orderHeader.tableNo,
                 waiterName: "QR POS",
-                kitchenName: "KDS",
-                isTakeawayOrder
+                kitchenName: "KDS"
             };
 
             const kdsDupCheck = await pool.request()
@@ -506,10 +483,8 @@ async function generateAndQueueReceipt(orderId, paymentMode = 'ONLINE') {
         .query(`
             SELECT TOP 1 h.OrderId, h.OrderNumber, LTRIM(RTRIM(h.Tableno)) as tableNo, 
                    h.TotalAmount, h.ServiceCharge as ServiceChargeAmount, h.TotalTax as GstAmount, 
-                   h.DiscountAmount, h.DiscountPercentage as DiscountValue,
-                   tm.DiningSection
+                   h.DiscountAmount, h.DiscountPercentage as DiscountValue
             FROM RestaurantOrderCur h
-            LEFT JOIN TableMaster tm ON LTRIM(RTRIM(h.Tableno)) = LTRIM(RTRIM(tm.TableNumber))
             WHERE h.OrderNumber = @orderNo
         `);
       
@@ -547,10 +522,9 @@ async function generateAndQueueReceipt(orderId, paymentMode = 'ONLINE') {
     };
 
     // 4. Determine Printer Type
-    const isTakeawayOrder = orderHeader.DiningSection == 4 || 
-                            String(orderHeader.tableNo).toUpperCase().startsWith('TW') || 
-                            String(orderHeader.tableNo).toUpperCase() === 'TAKEAWAY';
-    const pType = isTakeawayOrder ? 3 : 1;
+    const isTakeaway = String(orderHeader.tableNo).toUpperCase().startsWith('TW') || 
+                       String(orderHeader.tableNo).toUpperCase() === 'TAKEAWAY';
+    const pType = isTakeaway ? 3 : 1;
 
     // 5. Fetch Printer IP
     let printerIp = '192.168.68.178';
@@ -583,8 +557,7 @@ async function generateAndQueueReceipt(orderId, paymentMode = 'ONLINE') {
         gst: orderHeader.GstAmount || 0,
         total: orderHeader.TotalAmount || 0,
         payMode: paymentMode,
-        paidAmount: orderHeader.TotalAmount || 0,
-        isTakeawayOrder: isTakeawayOrder
+        paidAmount: orderHeader.TotalAmount || 0
     };
     
     const discountInfo = {
@@ -646,12 +619,7 @@ async function reprintKOT(orderId) {
 
     const orderRes = await pool.request()
       .input('orderNo', sql.NVarChar(50), orderId)
-      .query(`
-        SELECT TOP 1 h.OrderId, h.OrderNumber, LTRIM(RTRIM(h.Tableno)) as tableNo, tm.DiningSection 
-        FROM RestaurantOrderCur h 
-        LEFT JOIN TableMaster tm ON LTRIM(RTRIM(h.Tableno)) = LTRIM(RTRIM(tm.TableNumber)) 
-        WHERE h.OrderNumber = @orderNo
-      `);
+      .query(`SELECT TOP 1 h.OrderId, h.OrderNumber, LTRIM(RTRIM(h.Tableno)) as tableNo FROM RestaurantOrderCur h WHERE h.OrderNumber = @orderNo`);
 
     if (orderRes.recordset.length === 0) { console.log(`[reprintKOT] Order not found: ${orderId}`); return; }
     const orderHeader = orderRes.recordset[0];
@@ -693,12 +661,8 @@ async function reprintKOT(orderId) {
       groups[pName].items.push(item);
     });
 
-    const isTakeawayOrder = orderHeader.DiningSection == 4 || 
-                            String(orderHeader.tableNo).toUpperCase().startsWith('TW') || 
-                            String(orderHeader.tableNo).toUpperCase() === 'TAKEAWAY';
-
     for (const [, group] of Object.entries(groups)) {
-      const orderData = { orderId: orderHeader.OrderId, orderNo: orderHeader.OrderNumber, tableNo: orderHeader.tableNo, waiterName: 'QR POS', kitchenName: group.printerName, isTakeawayOrder };
+      const orderData = { orderId: orderHeader.OrderId, orderNo: orderHeader.OrderNumber, tableNo: orderHeader.tableNo, waiterName: 'QR POS', kitchenName: group.printerName };
       const thermalText = formatKOTThermalText(orderData, group.items, 'REPRINT');
       const jobId = crypto.randomUUID();
       await pool.request()
@@ -714,10 +678,7 @@ async function reprintKOT(orderId) {
       const kdsRes = await pool.request().query(`SELECT TOP 1 PrinterPath as PrinterIP, PrinterName FROM PrintMaster WHERE PrinterType = 4 AND IsActive = 1 AND PrinterPath IS NOT NULL AND PrinterPath <> ''`);
       if (kdsRes.recordset.length > 0) {
         const kp = kdsRes.recordset[0];
-        const isTakeawayOrder = orderHeader.DiningSection == 4 || 
-                                String(orderHeader.tableNo).toUpperCase().startsWith('TW') || 
-                                String(orderHeader.tableNo).toUpperCase() === 'TAKEAWAY';
-        const orderData = { orderId: orderHeader.OrderId, orderNo: orderHeader.OrderNumber, tableNo: orderHeader.tableNo, waiterName: 'QR POS', kitchenName: 'KDS', isTakeawayOrder };
+        const orderData = { orderId: orderHeader.OrderId, orderNo: orderHeader.OrderNumber, tableNo: orderHeader.tableNo, waiterName: 'QR POS', kitchenName: 'KDS' };
         const kdsThermal = formatKOTThermalText(orderData, items, 'REPRINT');
         const kdsJobId = crypto.randomUUID();
         await pool.request()
