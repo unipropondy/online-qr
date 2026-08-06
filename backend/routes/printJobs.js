@@ -59,7 +59,7 @@ router.get('/pending', authenticateBridge, async (req, res) => {
 
   try {
     await transaction.begin();
-    
+
     // 🔒 Acquire an exclusive application lock so multiple simultaneous /pending requests 
     // are processed strictly one after another. This completely eliminates race conditions 
     // where two requests read the same queue state before either can commit its updates.
@@ -86,7 +86,7 @@ router.get('/pending', authenticateBridge, async (req, res) => {
     // IMPORTANT: If an IP already has a job in 'PROCESSING', it means the bridge
     // is currently printing to it. We MUST NOT send another job for that IP yet,
     // otherwise the bridge will try to open a simultaneous connection.
-    
+
     // 1. Get IPs that are currently PROCESSING
     const processingReq = new sql.Request(transaction);
     const processingRes = await processingReq.query(`
@@ -124,7 +124,7 @@ router.get('/pending', authenticateBridge, async (req, res) => {
     res.json({ success: true, data: jobs });
 
   } catch (err) {
-    try { await transaction.rollback(); } catch (e) {}
+    try { await transaction.rollback(); } catch (e) { }
     console.error('Error fetching pending print jobs:', err);
     res.status(500).json({ success: false, error: err.message });
   }
@@ -156,7 +156,7 @@ router.post('/:jobId/complete', authenticateBridge, async (req, res) => {
   try {
     const { jobId } = req.params;
     const pool = await poolPromise;
-    
+
     await pool.request()
       .input('JobId', sql.UniqueIdentifier, jobId)
       .query(`

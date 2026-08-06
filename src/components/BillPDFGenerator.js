@@ -243,8 +243,8 @@ class BillPDFGenerator {
     const saleDate = saleData.originalDate
       ? parseDatabaseDate(saleData.originalDate)
       : saleData.date
-      ? parseDatabaseDate(saleData.date)
-      : new Date();
+        ? parseDatabaseDate(saleData.date)
+        : new Date();
 
     const isReprint = saleData.isReprint === true;
     const billNo =
@@ -254,8 +254,8 @@ class BillPDFGenerator {
       `ORD-${saleDate.getFullYear()}${(saleDate.getMonth() + 1)
         .toString()
         .padStart(2, "0")}${saleDate.getDate().toString().padStart(2, "0")}-${Math.floor(
-        1000 + Math.random() * 9000
-      )}`;
+          1000 + Math.random() * 9000
+        )}`;
 
     const hasGST = company.gstPercentage > 0;
     const gstRate =
@@ -376,92 +376,88 @@ class BillPDFGenerator {
         const modifiersHTML =
           item.modifiers && Array.isArray(item.modifiers)
             ? item.modifiers
-                .filter((m) => {
-                  const mAmt =
-                    parseFloat(
-                      String(m.Amount ?? m.Price ?? m.amount ?? m.price ?? 0)
-                    ) || 0;
-                  return mAmt > 0;
-                })
-                .map((m) => {
-                  const mName = (m.ModifierName || m.name || "").trim();
-                  const mAmt =
-                    parseFloat(
-                      String(m.Amount ?? m.Price ?? m.amount ?? m.price ?? 0)
-                    ) || 0;
-                  return `<div class="item-modifiers">+ ${mName}: ${currencySymbol}${(
-                    mAmt * qtyNum
-                  ).toFixed(2)}</div>`;
-                })
-                .join("")
+              .filter((m) => {
+                const mAmt =
+                  parseFloat(
+                    String(m.Amount ?? m.Price ?? m.amount ?? m.price ?? 0)
+                  ) || 0;
+                return mAmt > 0;
+              })
+              .map((m) => {
+                const mName = (m.ModifierName || m.name || "").trim();
+                const mAmt =
+                  parseFloat(
+                    String(m.Amount ?? m.Price ?? m.amount ?? m.price ?? 0)
+                  ) || 0;
+                return `<div class="item-modifiers">+ ${mName}: ${currencySymbol}${(
+                  mAmt * qtyNum
+                ).toFixed(2)}</div>`;
+              })
+              .join("")
             : "";
 
         const comboSelectionsHTML =
           item.isCombo &&
-          item.comboSelections &&
-          Array.isArray(item.comboSelections)
+            item.comboSelections &&
+            Array.isArray(item.comboSelections)
             ? item.comboSelections
-                .map((group) => {
-                  return (
-                    group.items
-                      ?.map((opt) => {
-                        const effectiveAdd =
-                          parseFloat(opt.surcharge || 0) +
-                          parseFloat(opt.dishPrice || 0);
-                        return `<div class="item-modifiers">↳ ${opt.name}${
-                          effectiveAdd > 0
-                            ? ` (+${currencySymbol}${effectiveAdd.toFixed(2)})`
-                            : ""
+              .map((group) => {
+                return (
+                  group.items
+                    ?.map((opt) => {
+                      const effectiveAdd =
+                        parseFloat(opt.surcharge || 0) +
+                        parseFloat(opt.dishPrice || 0);
+                      return `<div class="item-modifiers">↳ ${opt.name}${effectiveAdd > 0
+                          ? ` (+${currencySymbol}${effectiveAdd.toFixed(2)})`
+                          : ""
                         }</div>`;
-                      })
-                      .join("") || ""
-                  );
-                })
-                .join("")
+                    })
+                    .join("") || ""
+                );
+              })
+              .join("")
             : "";
 
         return `
           <tr>
               <td class="item-name">
                   ${item.name || item.Name || item.DishName || item.ProductName || ""}
-                  ${
-                    item.songName || item.SongName
-                      ? `<div style="font-size: 8.5px; color: #555; font-style: italic; margin-top: 0.5mm;">🎵 ${
-                          item.songName || item.SongName
-                        }</div>`
-                      : ""
-                  }
-                  ${
-                    (Number(item.isServiceCharge) === 1 ||
-                      item.isServiceCharge === true) &&
-                    !allItemsHaveSC
-                      ? `<div style="font-size: 8.5px; color: #555; font-style: italic; margin-top: 0.5mm;">[Service Charge ${company.serviceChargePercentage}%]</div>`
-                      : ""
-                  }
+                  ${item.songName || item.SongName
+            ? `<div style="font-size: 8.5px; color: #555; font-style: italic; margin-top: 0.5mm;">🎵 ${item.songName || item.SongName
+            }</div>`
+            : ""
+          }
+                  ${(Number(item.isServiceCharge) === 1 ||
+            item.isServiceCharge === true) &&
+            !allItemsHaveSC
+            ? `<div style="font-size: 8.5px; color: #555; font-style: italic; margin-top: 0.5mm;">[Service Charge ${company.serviceChargePercentage}%]</div>`
+            : ""
+          }
                   ${modifiersHTML}
                   ${comboSelectionsHTML}
                   ${(() => {
-                    const discAmt = Number(
-                      item.discountAmount ?? item.discount ?? 0
-                    );
-                    if (discAmt > 0) {
-                      const discType = item.discountType || "percentage";
-                      const discStr =
-                        discType === "percentage"
-                          ? `-${discAmt}%`
-                          : `-${currencySymbol}${discAmt.toFixed(2)}`;
-                      return `<div style="font-size: 8.5px; color: #555; font-style: italic; margin-top: 0.5mm;">Discount: ${discStr}</div>`;
-                    }
-                    return "";
-                  })()}
+            const discAmt = Number(
+              item.discountAmount ?? item.discount ?? 0
+            );
+            if (discAmt > 0) {
+              const discType = item.discountType || "percentage";
+              const discStr =
+                discType === "percentage"
+                  ? `-${discAmt}%`
+                  : `-${currencySymbol}${discAmt.toFixed(2)}`;
+              return `<div style="font-size: 8.5px; color: #555; font-style: italic; margin-top: 0.5mm;">Discount: ${discStr}</div>`;
+            }
+            return "";
+          })()}
               </td>
               <td class="item-qty">${item.qty || item.quantity}</td>
               <td class="item-price">${currencySymbol}${item.price.toFixed(
-          2
-        )}</td>
+            2
+          )}</td>
               <td class="item-total">${currencySymbol}${(
-          item.price * (item.qty || item.quantity)
-        ).toFixed(2)}</td>
+            item.price * (item.qty || item.quantity)
+          ).toFixed(2)}</td>
           </tr>
         `;
       })
@@ -528,57 +524,49 @@ class BillPDFGenerator {
         <div class="print-wrapper">
           <div class="receipt">
           
-          ${
-            saleData.isCheckout
-              ? `
+          ${saleData.isCheckout
+        ? `
             <div style="text-align: center; border: 2.5px solid #000; padding: 1.5mm; margin-bottom: 4mm; font-weight: 900; font-size: 18px; letter-spacing: 2px;">
               CHECKOUT BILL
             </div>
           `
-              : ""
-          }
+        : ""
+      }
 
           <!-- Logo Header -->
           <div class="logo-header">
-            ${
-              showCompanyLogo && companyLogoUrl
-                ? `<img src="${companyLogoUrl}" class="company-logo" />`
-                : '<div style="width:45px"></div>'
-            }
+            ${showCompanyLogo && companyLogoUrl
+        ? `<img src="${companyLogoUrl}" class="company-logo" />`
+        : '<div style="width:45px"></div>'
+      }
             <div class="shop-info">
-              <div class="shop-name">${
-                saleData.shopName || company.name || "POS SYSTEM"
-              }</div>
+              <div class="shop-name">${saleData.shopName || company.name || "POS SYSTEM"
+      }</div>
               <div class="shop-address">${(
-                saleData.shopAddress ||
-                company.address ||
-                ""
-              ).replace(/\n/g, "<br/>")}</div>
-              ${
-                saleData.shopGst || company.gstNo
-                  ? `<div class="gst-no">GST: ${
-                      saleData.shopGst || company.gstNo
-                    }</div>`
-                  : ""
-              }
+        saleData.shopAddress ||
+        company.address ||
+        ""
+      ).replace(/\n/g, "<br/>")}</div>
+              ${saleData.shopGst || company.gstNo
+        ? `<div class="gst-no">GST: ${saleData.shopGst || company.gstNo
+        }</div>`
+        : ""
+      }
               <div class="contact">
-                ${
-                  saleData.shopPhone || company.phone
-                    ? `<div>Ph: ${saleData.shopPhone || company.phone}</div>`
-                    : ""
-                } 
-                ${
-                  saleData.shopEmail || company.email
-                    ? `<div>Email: ${saleData.shopEmail || company.email}</div>`
-                    : ""
-                }
+                ${saleData.shopPhone || company.phone
+        ? `<div>Ph: ${saleData.shopPhone || company.phone}</div>`
+        : ""
+      } 
+                ${saleData.shopEmail || company.email
+        ? `<div>Email: ${saleData.shopEmail || company.email}</div>`
+        : ""
+      }
               </div>
             </div>
-            ${
-              showHalalLogo && halalLogoUrl
-                ? `<img src="${halalLogoUrl}" class="halal-logo" />`
-                : '<div style="width:45px"></div>'
-            }
+            ${showHalalLogo && halalLogoUrl
+        ? `<img src="${halalLogoUrl}" class="halal-logo" />`
+        : '<div style="width:45px"></div>'
+      }
           </div>
           
           <!-- Bill Details -->
@@ -588,49 +576,46 @@ class BillPDFGenerator {
                 <span class="detail-label">INVOICE NO:</span>
                 <span class="detail-value">${billNo}</span>
               </div>
-              ${
-                saleData.tableNo
-                  ? `
+              ${saleData.tableNo
+        ? `
                 <div class="detail-row" style="margin-top: 1.5mm; padding-top: 1mm; border-top: 1px dashed #ccc;">
-                  <span class="detail-label" style="font-size: 14px; font-weight: 900;">TABLE NO:</span>
+                  <span class="detail-label" style="font-size: 14px; font-weight: 900;">Takeaway NO:</span>
                   <span class="detail-value" style="font-size: 14px; font-weight: 900;">${saleData.tableNo}</span>
                 </div>
               `
-                  : ""
-              }
-              ${
-                saleData.waiterName && saleData.waiterName !== "Staff"
-                  ? `
+        : ""
+      }
+              ${saleData.waiterName && saleData.waiterName !== "Staff"
+        ? `
                 <div class="detail-row" style="margin-top: 1mm;">
                   <span class="detail-label" style="font-size: 9px; color: #666;">WAITER:</span>
                   <span class="detail-value" style="font-size: 9px; color: #666;">${saleData.waiterName}</span>
                 </div>
               `
-                  : ""
-              }
+        : ""
+      }
             </div>
             
             <div class="detail-row">
               <span class="detail-label">DATE:</span>
               <span class="detail-value">
                 ${formatToSingaporeDate(saleDate, {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric",
-                })} ${formatToSingaporeTime(saleDate)}
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      })} ${formatToSingaporeTime(saleDate)}
               </span>
             </div>
             
-            ${
-              company.cashierName
-                ? `
+            ${company.cashierName
+        ? `
             <div class="detail-row">
               <span class="detail-label">CASHIER:</span>
               <span class="detail-value">${company.cashierName}</span>
             </div>
             `
-                : ""
-            }
+        : ""
+      }
           </div>
           
           <!-- Items Table -->
@@ -648,133 +633,120 @@ class BillPDFGenerator {
           
           <!-- Totals -->
           <div class="totals">
-            ${
-              hasAnyDiscount
-                ? `
+            ${hasAnyDiscount
+        ? `
             <div class="total-row">
               <span>Sub Total:</span>
               <span>${currencySymbol}${originalSubTotal.toFixed(2)}</span>
             </div>
-            ${
-              totalItemDiscount > 0
-                ? `
+            ${totalItemDiscount > 0
+          ? `
             <div class="total-row">
               <span>Item Discounts:</span>
               <span>-${currencySymbol}${totalItemDiscount.toFixed(2)}</span>
             </div>
             `
-                : ""
-            }
-            ${
-              hasOrderDiscount
-                ? `
+          : ""
+        }
+            ${hasOrderDiscount
+          ? `
             <div class="total-row">
-              <span>Discount${
-                finalDiscountInfo?.type === "percentage"
-                  ? ` (${finalDiscountInfo?.value}%)`
-                  : ""
-              }:</span>
+              <span>Discount${finalDiscountInfo?.type === "percentage"
+            ? ` (${finalDiscountInfo?.value}%)`
+            : ""
+          }:</span>
               <span>-${currencySymbol}${finalDiscountInfo?.amount.toFixed(
-                    2
-                  )}</span>
+            2
+          )}</span>
             </div>
             `
-                : ""
-            }
+          : ""
+        }
             <div class="total-row" style="margin-top: 1.5mm; border-top: 1px dashed #ccc; padding-top: 1.5mm;">
               <span>Net Amount:</span>
               <span>${currencySymbol}${amountWithoutGST.toFixed(2)}</span>
             </div>
             `
-                : `
+        : `
             <div class="total-row">
               <span>Sub Total:</span>
               <span>${currencySymbol}${amountWithoutGST.toFixed(2)}</span>
             </div>
             `
-            }
+      }
             
-             ${
-               hasSC
-                 ? `
+             ${hasSC
+        ? `
              <div class="total-row">
-               <span>${
-                 allItemsHaveSC ? "Service Charge" : "Item Service Charge"
-               }:</span>
+               <span>${allItemsHaveSC ? "Service Charge" : "Item Service Charge"
+        }:</span>
                <span>${currencySymbol}${serviceChargeAmount.toFixed(2)}</span>
              </div>
              `
-                 : ""
-             }
-             ${
-               hasGST && gstAmount > 0
-                 ? `
+        : ""
+      }
+             ${hasGST && gstAmount > 0
+        ? `
              <div class="total-row">
                <span>GST (${gstRate}%):</span>
                <span>${currencySymbol}${gstAmount.toFixed(2)}</span>
              </div>
              `
-                 : ""
-             }
-             ${
-               printedRoundOff && printedRoundOff !== 0
-                 ? `
+        : ""
+      }
+             ${printedRoundOff && printedRoundOff !== 0
+        ? `
              <div class="total-row">
                <span>Round Off:</span>
-               <span>${
-                 printedRoundOff > 0 ? "+" : ""
-               }${currencySymbol}${printedRoundOff.toFixed(2)}</span>
+               <span>${printedRoundOff > 0 ? "+" : ""
+        }${currencySymbol}${printedRoundOff.toFixed(2)}</span>
              </div>
              `
-                 : ""
-             }
+        : ""
+      }
             <div class="grand-total">
-              <span>${
-                hasGST ? "GRAND TOTAL (incl GST):" : "GRAND TOTAL:"
-              }</span>
+              <span>${hasGST ? "GRAND TOTAL (incl GST):" : "GRAND TOTAL:"
+      }</span>
               <span>${currencySymbol}${finalTotal.toFixed(2)}</span>
             </div>
           </div>
           
           <!-- Payment Info -->
           <div class="payment-info">
-            ${
-              saleData.isCheckout
-                ? `
+            ${saleData.isCheckout
+        ? `
               <div class="payment-row" style="margin-top: 5mm; border: 2px solid #000; padding: 2mm; text-align: center; justify-content: center;">
                 <span class="payment-label" style="font-size: 14px;">PAYMENT STATUS: PENDING</span>
               </div>
             `
-                : `
-              ${
-                saleData.payments &&
-                Array.isArray(saleData.payments) &&
-                saleData.payments.length > 0
-                  ? `
+        : `
+              ${saleData.payments &&
+          Array.isArray(saleData.payments) &&
+          saleData.payments.length > 0
+          ? `
                 <div style="font-weight: bold; border-top: 1px dashed #ccc; margin-top: 2mm; padding-top: 2mm; font-size: 10px; text-align: left; text-transform: uppercase; margin-bottom: 1.5mm;">PAYMENT DETAILS</div>
                 ${saleData.payments
-                  .map(
-                    (p) => `
+            .map(
+              (p) => `
                   <div class="payment-row" style="font-size: 10px; font-weight: 700; display: flex; justify-content: space-between;">
                     <span>${String(
-                      p.payMode || p.payModeName || p.Remarks || "Payment"
-                    ).toUpperCase()}</span>
+                p.payMode || p.payModeName || p.Remarks || "Payment"
+              ).toUpperCase()}</span>
                     <span>${currencySymbol}${parseFloat(p.amount).toFixed(
-                      2
-                    )}</span>
+                2
+              )}</span>
                   </div>
                 `
-                  )
-                  .join("")}
+            )
+            .join("")}
               `
-                  : `
+          : `
                 <div class="payment-row">
                   <span>PAYMENT:</span>
                   <span>${saleData.paymentMethod || "Cash"}</span>
                 </div>
-                ${
-                  saleData.cashPaid
-                    ? `
+                ${saleData.cashPaid
+            ? `
                 <div class="payment-row">
                   <span>PAID:</span>
                   <span>${currencySymbol}${saleData.cashPaid.toFixed(2)}</span>
@@ -782,29 +754,28 @@ class BillPDFGenerator {
                 <div class="payment-row">
                   <span>CHANGE:</span>
                   <span>${currencySymbol}${(saleData.change || 0).toFixed(
-                        2
-                      )}</span>
+              2
+            )}</span>
                 </div>
                 `
-                    : ""
-                }
+            : ""
+          }
               `
-              }
+        }
             `
-            }
+      }
           </div>
           
           <!-- Footer -->
           <div class="footer">
-            ${
-              saleData.isCheckout
-                ? `
+            ${saleData.isCheckout
+        ? `
               <div class="thankyou">PLEASE PAY AT THE COUNTER</div>
             `
-                : `
+        : `
               <div class="thankyou">THANK YOU! COME AGAIN!</div>
             `
-            }
+      }
             <div class="copyright">SMART-POS BY UNIPROSG</div>
           </div>
           </div>
@@ -825,18 +796,18 @@ class BillPDFGenerator {
       frame.style.display = "none";
       document.body.appendChild(frame);
     }
-    
+
     const doc = frame.contentWindow?.document || frame.contentDocument;
     if (doc) {
       doc.open();
       doc.write(html);
       doc.close();
-      
+
       const trigger = () => {
         frame.contentWindow?.focus();
         frame.contentWindow?.print();
       };
-      
+
       frame.contentWindow?.addEventListener("load", trigger);
       setTimeout(trigger, 500); // fallback if load doesn't trigger
     }
