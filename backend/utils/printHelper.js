@@ -21,11 +21,11 @@ function formatToSingaporeDate(date) {
 
 function formatThermalTextWithDiscount(saleData, company, discountInfo) {
   const symbol = company.currencySymbol || "$";
-  const name   = company.name || "POS SYSTEM";
+  const name = company.name || "POS SYSTEM";
   const address = company.address || "";
-  const gstNo  = company.gstNo || "";
-  const tel    = company.phone || company.tel || "";
-  const email  = company.email || "";
+  const gstNo = company.gstNo || "";
+  const tel = company.phone || company.tel || "";
+  const email = company.email || "";
 
   const now = new Date();
   const dateStr = formatToSingaporeDate(now);
@@ -39,7 +39,7 @@ function formatThermalTextWithDiscount(saleData, company, discountInfo) {
 
   const tableNo = saleData.tableNo || "";
   const orderNo = saleData.orderNo || saleData.id || saleData.saleId || "";
-  const items   = saleData.items || saleData.cartItems || [];
+  const items = saleData.items || saleData.cartItems || [];
 
   // ── Header ────────────────────────────────────────────────────────────────
   let text = "[C]================================================\n";
@@ -47,16 +47,16 @@ function formatThermalTextWithDiscount(saleData, company, discountInfo) {
   text += "[C]================================================\n";
   text += `[C]<B>${name}</B>\n`;
   if (address) text += `[C]${address}\n`;
-  if (tel)     text += `[C]Tel: ${tel}\n`;
-  if (email)   text += `[C]Email: ${email}\n`;
+  if (tel) text += `[C]Tel: ${tel}\n`;
+  if (email) text += `[C]Email: ${email}\n`;
   text += "[C]------------------------------------------------\n";
 
   // ── Bill Info ─────────────────────────────────────────────────────────────
   if (orderNo) {
     const last4 = String(orderNo).slice(-4);
-    text += `[L]<font size='big'><B>Bill No: ${last4}</B></font>\n`;
+    text += `[L]<font size='big'><B>Order No: ${last4}</B></font>\n`;
   }
-  if (tableNo) text += `[L]<font size='big'><B>TAKEAWAY: ${tableNo}</B></font>\n`;
+  if (tableNo) text += `[L]<font size='small'><B>TAKEAWAY: ${tableNo}</B></font>\n`;
   text += `[L]Date: ${dateStr} ${timeStr}\n`;
   text += "[L]------------------------------------------------\n";
 
@@ -66,12 +66,12 @@ function formatThermalTextWithDiscount(saleData, company, discountInfo) {
 
   // ── Items ─────────────────────────────────────────────────────────────────
   items.forEach((item) => {
-    const itemName  = (item.name || item.Name || item.DishName || item.ProductName || "Item").substring(0, 19);
-    const qty       = Number(item.quantity || item.qty || 1);
+    const itemName = (item.name || item.Name || item.DishName || item.ProductName || "Item").substring(0, 19);
+    const qty = Number(item.quantity || item.qty || 1);
     const unitPrice = Number(item.price || item.Price || 0);
     const lineTotal = unitPrice * qty;
 
-    const qtyStr   = `[${qty}]`;
+    const qtyStr = `[${qty}]`;
     const priceStr = `${symbol}${unitPrice.toFixed(2)}`;
     const totalStr = `${symbol}${lineTotal.toFixed(2)}`;
 
@@ -138,7 +138,7 @@ function formatThermalTextWithDiscount(saleData, company, discountInfo) {
 
   // ── Payment line (e.g. "CASH        $6.00") ──────────────────────────────
   const payMode = (saleData.payMode || saleData.paymentMode || saleData.PaymentMode || "CASH").toUpperCase();
-  const total   = Number(saleData.total || saleData.totalAmount || saleData.grandTotal || 0);
+  const total = Number(saleData.total || saleData.totalAmount || saleData.grandTotal || 0);
   const totalStr2 = `${symbol}${total.toFixed(2)}`;
   text += "[L]" + payMode + totalStr2.padStart(40 - payMode.length) + "\n";
   text += "[L]------------------------------------------------\n";
