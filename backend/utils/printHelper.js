@@ -21,44 +21,70 @@ function formatToSingaporeDate(date) {
 
 function formatThermalTextWithDiscount(saleData, company, discountInfo) {
   const symbol = company.currencySymbol || "$";
-  const name = company.name || "POS SYSTEM";
+  const name   = company.name || "POS SYSTEM";
   const address = company.address || "";
-  const gstNo = company.gstNo || "";
-  const tel = company.phone || company.tel || "";
+  const gstNo  = company.gstNo || "";
+  const tel    = company.phone || company.tel || "";
+  const email  = company.email || "";
 
   const now = new Date();
   const dateStr = formatToSingaporeDate(now);
-  const timeStr = formatToSingaporeTime(now);
-
-  let text = `[C]<B>${name}</B>\n`;
-  if (address) text += `[C]${address}\n`;
-  if (gstNo) text += `[C]GST: ${gstNo}\n`;
-  if (tel) text += `[C]Tel: ${tel}\n`;
-  text += `[C]${dateStr} ${timeStr}\n`;
-  text += "[L]================================\n";
+  // 12-hour time with AM/PM (e.g. 02:11 PM)
+  const timeStr = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Singapore",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).format(now).toUpperCase();
 
   const tableNo = saleData.tableNo || "";
   const orderNo = saleData.orderNo || saleData.id || saleData.saleId || "";
-  if (tableNo) text += `[L]Table: ${tableNo}\n`;
-  if (orderNo) text += `[L]Order #: ${orderNo}\n`;
-  text += "[L]================================\n";
-  text += "[L]Item                   Qty  Total\n";
-  text += "[L]--------------------------------\n";
+  const items   = saleData.items || saleData.cartItems || [];
 
-  const items = saleData.items || saleData.cartItems || [];
+  // ── Header ────────────────────────────────────────────────────────────────
+  let text = "[C]================================================\n";
+  text += "[C]<B>PAYMENT RECEIPT</B>\n";
+  text += "[C]================================================\n";
+  text += `[C]<B>${name}</B>\n`;
+  if (address) text += `[C]${address}\n`;
+  if (tel)     text += `[C]Tel: ${tel}\n`;
+  if (email)   text += `[C]Email: ${email}\n`;
+  text += "[C]------------------------------------------------\n";
+
+  // ── Bill Info ─────────────────────────────────────────────────────────────
+  if (orderNo) {
+    const last4 = String(orderNo).slice(-4);
+    text += `[L]<B>Bill No:</B> ${last4}\n`;
+  }
+  if (tableNo) text += `[L]<B>TAKEAWAY: ${tableNo}</B>\n`;
+  text += `[L]Date: ${dateStr} ${timeStr}\n`;
+  text += "[L]------------------------------------------------\n";
+
+  // ── Column Headers: ITEM (20) | QTY (5) | PRICE (7) | TOTAL (8) = 40 ─────
+  text += "[L]" + "ITEM".padEnd(20) + "QTY".padEnd(5) + "PRICE".padStart(7) + "TOTAL".padStart(8) + "\n";
+  text += "[L]------------------------------------------------\n";
+
+  // ── Items ─────────────────────────────────────────────────────────────────
   items.forEach((item) => {
-    const itemName = (item.name || item.Name || item.DishName || item.ProductName || "Item").substring(0, 18);
-    const qty = item.quantity || item.qty || 1;
-    const price = (item.price || 0) * qty;
-    const line = `${itemName.padEnd(20)} ${String(qty).padStart(3)}  ${symbol}${price.toFixed(2)}`;
-    text += `[L]${line}\n`;
+    const itemName  = (item.name || item.Name || item.DishName || item.ProductName || "Item").substring(0, 19);
+    const qty       = Number(item.quantity || item.qty || 1);
+    const unitPrice = Number(item.price || item.Price || 0);
+    const lineTotal = unitPrice * qty;
 
+    const qtyStr   = `[${qty}]`;
+    const priceStr = `${symbol}${unitPrice.toFixed(2)}`;
+    const totalStr = `${symbol}${lineTotal.toFixed(2)}`;
+
+    text += "[L]" + itemName.padEnd(20) + qtyStr.padEnd(5) + priceStr.padStart(7) + totalStr.padStart(8) + "\n";
+
+    // Modifiers
     if (item.modifiers && item.modifiers.length > 0) {
       item.modifiers.forEach((m) => {
         text += `[L]  + ${m.name || m.ModifierName}\n`;
       });
     }
 
+    // Combo selections
     const comboSels = item.comboSelections || (item.ComboDetailsJSON ? (() => { try { return JSON.parse(item.ComboDetailsJSON); } catch { return []; } })() : []);
     if (comboSels && comboSels.length > 0) {
       comboSels.forEach((g) => {
@@ -71,52 +97,58 @@ function formatThermalTextWithDiscount(saleData, company, discountInfo) {
     }
   });
 
-  text += "[L]================================\n";
+  text += "[L]------------------------------------------------\n";
 
-  const subtotal =
-    saleData.subtotal ||
-    items.reduce((s, i) => s + (i.price || 0) * (i.quantity || i.qty || 1), 0);
-  text += `[R]Subtotal: ${symbol}${Number(subtotal).toFixed(2)}\n`;
+  // ── Totals ────────────────────────────────────────────────────────────────
+  const subtotal = Number(
+    saleData.subtotal != null
+      ? saleData.subtotal
+      : items.reduce((s, i) => s + Number(i.price || i.Price || 0) * Number(i.quantity || i.qty || 1), 0)
+  );
+
+  // Helper: left label + right-aligned value on a 40-char line
+  const totalLine = (label, value) => {
+    const valStr = `${symbol}${Number(value).toFixed(2)}`;
+    return "[L]" + label + valStr.padStart(40 - label.length) + "\n";
+  };
+
+  text += totalLine("Sub Total:", subtotal);
 
   // Discount
   if (discountInfo && discountInfo.applied && discountInfo.amount > 0) {
-    const discLabel =
-      discountInfo.type === "percentage"
-        ? `Discount (${discountInfo.value}%):`
-        : "Discount:";
-    text += `[R]${discLabel} -${symbol}${Number(discountInfo.amount).toFixed(2)}\n`;
+    const discLabel = discountInfo.type === "percentage"
+      ? `Discount (${discountInfo.value}%):`
+      : "Discount:";
+    const discStr = `-${symbol}${Number(discountInfo.amount).toFixed(2)}`;
+    text += "[L]" + discLabel + discStr.padStart(40 - discLabel.length) + "\n";
   }
 
-  const serviceCharge = saleData.serviceCharge || saleData.serviceChargeAmount || 0;
+  const serviceCharge = Number(saleData.serviceCharge || saleData.serviceChargeAmount || 0);
   if (serviceCharge > 0) {
-    text += `[R]Service Charge: ${symbol}${Number(serviceCharge).toFixed(2)}\n`;
+    text += totalLine("Service Charge:", serviceCharge);
   }
 
-  const gst = saleData.gst || saleData.gstAmount || 0;
+  const gst = Number(saleData.gst || saleData.gstAmount || 0);
   if (gst > 0) {
-    text += `[R]GST: ${symbol}${Number(gst).toFixed(2)}\n`;
+    const gstLabel = gstNo ? `GST (${gstNo}):` : "GST (9%):";
+    text += totalLine(gstLabel, gst);
   }
 
-  const total = saleData.total || saleData.totalAmount || saleData.grandTotal || 0;
-  text += "[L]================================\n";
-  text += `[R]<B>TOTAL: ${symbol}${Number(total).toFixed(2)}</B>\n`;
-  text += "[L]================================\n";
+  text += "[L]------------------------------------------------\n";
 
-  const payMode =
-    saleData.paymentMode ||
-    saleData.payMode ||
-    saleData.PaymentMode ||
-    "CASH";
-  const paid = saleData.amountPaid || saleData.paidAmount || total;
-  const change = saleData.change || saleData.changeAmount || Math.max(0, paid - total);
+  // ── Payment line (e.g. "CASH        $6.00") ──────────────────────────────
+  const payMode = (saleData.payMode || saleData.paymentMode || saleData.PaymentMode || "CASH").toUpperCase();
+  const total   = Number(saleData.total || saleData.totalAmount || saleData.grandTotal || 0);
+  const totalStr2 = `${symbol}${total.toFixed(2)}`;
+  text += "[L]" + payMode + totalStr2.padStart(40 - payMode.length) + "\n";
+  text += "[L]------------------------------------------------\n";
 
-  text += `[L]Payment: ${payMode}\n`;
-  text += `[L]Paid: ${symbol}${Number(paid).toFixed(2)}\n`;
-  if (change > 0) text += `[L]Change: ${symbol}${Number(change).toFixed(2)}\n`;
+  // ── Big Total ─────────────────────────────────────────────────────────────
+  text += `[C]<B>TOTAL: ${symbol}${total.toFixed(2)}</B>\n`;
 
-  text += "[L]================================\n";
-  text += "[C]Thank you for your visit!\n";
-  text += `[C]© ${new Date().getFullYear()} UNIPRO SOFTWARES SG PTE LTD\n`;
+  text += "[C]================================================\n";
+  text += "[C]<B>THANK YOU! COME AGAIN!</B>\n";
+  text += "[C]SMART-POS BY UNIPROSG\n";
   text += "\n\n";
   return text;
 }
