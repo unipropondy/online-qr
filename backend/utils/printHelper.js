@@ -54,9 +54,9 @@ function formatThermalTextWithDiscount(saleData, company, discountInfo) {
   // ── Bill Info ─────────────────────────────────────────────────────────────
   if (orderNo) {
     const last4 = String(orderNo).slice(-4);
-    text += `[L]<B>Bill No:</B> ${last4}\n`;
+    text += `[L]<font size='big'><B>Bill No: ${last4}</B></font>\n`;
   }
-  if (tableNo) text += `[L]<B>TAKEAWAY: ${tableNo}</B>\n`;
+  if (tableNo) text += `[L]<font size='big'><B>TAKEAWAY: ${tableNo}</B></font>\n`;
   text += `[L]Date: ${dateStr} ${timeStr}\n`;
   text += "[L]------------------------------------------------\n";
 
@@ -538,19 +538,17 @@ async function generateAndQueueReceipt(orderId, paymentMode = 'ONLINE') {
       modifiers: item.ModifiersJSON ? JSON.parse(item.ModifiersJSON) : []
     }));
 
-    // 3. Get Company details (AppSettings + Organization)
-    const appSettingsRes = await pool.request().query("SELECT TOP 1 ShopName FROM AppSettings");
-    const orgRes = await pool.request().query("SELECT TOP 1 Name, Address1_Line1, Address1_Telephone1, GstRegno FROM Organization");
-
-    const appRow = appSettingsRes.recordset[0] || {};
-    const orgRow = orgRes.recordset[0] || {};
+    // 3. Get Company details from CompanySettings
+    const companyRes = await pool.request().query("SELECT TOP 1 CompanyName, Address, Phone, Email, GSTNo, CurrencySymbol FROM CompanySettings");
+    const companyRow = companyRes.recordset[0] || {};
 
     const company = {
-      name: appRow.ShopName || orgRow.Name || "POS SYSTEM",
-      address: orgRow.Address1_Line1 || "",
-      gstNo: orgRow.GstRegno || "",
-      tel: orgRow.Address1_Telephone1 || "",
-      currencySymbol: "$"
+      name: companyRow.CompanyName || "SMART POS",
+      address: companyRow.Address || "",
+      gstNo: companyRow.GSTNo || "",
+      tel: companyRow.Phone || "",
+      email: companyRow.Email || "",
+      currencySymbol: companyRow.CurrencySymbol || "$"
     };
 
     // 4. Determine Printer Type
@@ -604,14 +602,13 @@ async function generateAndQueueReceipt(orderId, paymentMode = 'ONLINE') {
     // Duplicate Check
     const dupCheck = await pool.request()
       .input('PrinterIp', sql.NVarChar(100), printerIp)
-      .input('SearchText', sql.NVarChar(100), `%Order #: ${orderHeader.OrderNumber}%`)
+      .input('SearchText', sql.NVarChar(100), `%Bill No:%${String(orderHeader.OrderNumber).slice(-4)}%`)
       .query(`
             SELECT TOP 1 JobId 
             FROM PrintJobQueue 
             WHERE PrinterIp = @PrinterIp 
               AND Status IN ('PENDING', 'PROCESSING') 
               AND Content LIKE @SearchText
-              AND Content LIKE '%Payment:%'
         `);
 
     if (dupCheck.recordset.length > 0) {
