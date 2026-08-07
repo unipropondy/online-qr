@@ -1573,8 +1573,12 @@ router.post("/complete-online-payment", async (req, res) => {
     const pMethod = (paymentMethod || "ONLINE").toUpperCase();
     const settlementId = crypto.randomUUID();
 
-    // NOTE: KOT/KDS was already queued by /mark-sent when the order was placed.
-    // Do NOT call generateAndQueueKOTs here — it causes duplicate KOT/KDS prints.
+    // Generate and queue KOT for newly added items (StatusCode = 1) before they become 2 (Paid)
+    try {
+      await generateAndQueueKOTs(orderId);
+    } catch (err) {
+      console.error("Failed to queue KOT for online payment:", err);
+    }
 
     await transaction.begin();
 
