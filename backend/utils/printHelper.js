@@ -91,7 +91,7 @@ function formatThermalTextWithDiscount(saleData, company, discountInfo) {
         text += `[L]    ${g.groupName || g.GroupName}:\n`;
         const comboItems = g.items || g.Items || [];
         comboItems.forEach((opt) => {
-          text += `[L]      ↳ ${opt.name || opt.Name}\n`;
+          text += `[L]      -> ${opt.name || opt.Name}\n`;
         });
       });
     }
@@ -202,7 +202,7 @@ function formatKOTThermalText(data, itemsForPrinter, type) {
     });
 
     const songName = item.songName || item.SongName || "";
-    if (songName) t += `[L]    🎵 ${songName}\n`;
+    if (songName) t += `[L]    [SONG]: ${songName}\n`;
 
     const isTw = !!(
       item.isTakeaway ||
@@ -225,7 +225,7 @@ function formatKOTThermalText(data, itemsForPrinter, type) {
         const comboItems = g.items || g.Items || [];
         if (comboItems.length > 0) {
           comboItems.forEach((opt) => {
-            t += `[L]<font size='big'>    - ${opt.name || opt.Name}</font>\n`;
+            t += `[L]<font size='big'>    -> ${opt.name || opt.Name}</font>\n`;
           });
         }
       });
@@ -550,7 +550,7 @@ async function generateAndQueueReceipt(orderId, paymentMode = 'ONLINE') {
       address: orgRow.Address1_Line1 || "",
       gstNo: orgRow.GstRegno || "",
       tel: orgRow.Address1_Telephone1 || "",
-      currencySymbol: "₹"
+      currencySymbol: "$"
     };
 
     // 4. Determine Printer Type

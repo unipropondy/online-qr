@@ -534,6 +534,7 @@ async function syncTableStatus(req, tableId) {
       status: Number(updated.Status),
       totalAmount: Number(updated.TotalAmount) || 0,
       startTime: updated.StartTime,
+      currencySymbol: "$",
       currentOrderId: cleanOrderId,
       tableNo: updated.tableNo,
       section: sectionMap[String(updated.section)] || updated.section,
@@ -1572,12 +1573,8 @@ router.post("/complete-online-payment", async (req, res) => {
     const pMethod = (paymentMethod || "ONLINE").toUpperCase();
     const settlementId = crypto.randomUUID();
 
-    // Generate and queue KOT for any newly added items (StatusCode = 1) before they are updated to 2
-    try {
-      await generateAndQueueKOTs(orderId);
-    } catch (err) {
-      console.error("Failed to queue KOT for online payment:", err);
-    }
+    // NOTE: KOT/KDS was already queued by /mark-sent when the order was placed.
+    // Do NOT call generateAndQueueKOTs here — it causes duplicate KOT/KDS prints.
 
     await transaction.begin();
 
