@@ -2512,7 +2512,7 @@ function App() {
 
                     </div>
 
-                    <div className="payment-or">
+                    {/* <div className="payment-or">
                       OR
                     </div>
 
@@ -2535,7 +2535,7 @@ function App() {
                             await fetch(`${API}/order/mark-sent`, {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ orderId: currentOrderId/*, statusCode: 1 */ })
+                              body: JSON.stringify({ orderId: currentOrderId })
                             });
 
                             await fetch(`${API}/order/payment-status`, {
@@ -2548,7 +2548,7 @@ function App() {
                                 paymentStatus: 0
                               })
                             });
-                            // KOT Printing is now handled by the backend
+                            
 
                           } catch (e) {
                             console.error(e);
@@ -2561,9 +2561,9 @@ function App() {
                         }}
                       >
                         Pay at Counter
-                      </button>
+                      </button> 
 
-                    </div>
+                    </div>*/}
 
                   </div>
 
