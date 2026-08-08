@@ -56,7 +56,9 @@ function formatThermalTextWithDiscount(saleData, company, discountInfo) {
     const last4 = String(orderNo).slice(-4);
     text += `[L]<font size='big'><B>Order No: ${last4}</B></font>\n`;
   }
-  if (tableNo) text += `[L]<font size='small'><B>TAKEAWAY: ${tableNo}</B></font>\n`;
+  if (tableNo) {
+    text += `[L]<B>TAKEAWAY: ${tableNo}</B>\n`;
+  }
   text += `[L]Date: ${dateStr} ${timeStr}\n`;
   text += "[L]------------------------------------------------\n";
 

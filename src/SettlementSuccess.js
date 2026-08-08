@@ -142,88 +142,99 @@ function SettlementSuccess() {
 
   const grandTotal = orderItems.reduce((sum, item) => sum + Number(item.LineTotal || 0), 0);
 
+  const isValidStatus = [2, 3, 4].includes(Number(statusCode));
+
   return (
     <div className="confirmation-screen">
       <div className="confirmation-card">
         <div className="confirmation-banner">Order Confirmation</div>
 
-        <div className="confirmation-order-label">
-          Order No: <span>{orderSuffix}</span>
-        </div>
+        {isValidStatus && (
+          <div className="confirmation-order-label">
+            Order No: <span>{orderSuffix}</span>
+          </div>
+        )}
+        
         {tableNo && (
           <div style={{
             fontSize: "clamp(22px, 2vw, 32px)",
             fontWeight: "800",
             color: "#454545",
-            marginTop: "-5px",
+            marginTop: isValidStatus ? "-5px" : "15px",
             marginBottom: "15px"
           }}>
             Table No: <span style={{ color: "var(--theme-color)", fontSize: "1.3em", fontWeight: "900" }}>{tableNo}</span>
           </div>
         )}
 
-        {/* Order Details Icon Button */}
-        <button
-          className="order-details-icon-btn"
-          onClick={handleOpenOrderDetails}
-          title="View Order Details"
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
-            <rect x="9" y="3" width="6" height="4" rx="1" />
-            <line x1="9" y1="12" x2="15" y2="12" />
-            <line x1="9" y1="16" x2="13" y2="16" />
-          </svg>
-          <span>Order Details</span>
-        </button>
+        {isValidStatus && (
+          <>
+            {/* Order Details Icon Button */}
+            <button
+              className="order-details-icon-btn"
+              onClick={handleOpenOrderDetails}
+              title="View Order Details"
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+                <rect x="9" y="3" width="6" height="4" rx="1" />
+                <line x1="9" y1="12" x2="15" y2="12" />
+                <line x1="9" y1="16" x2="13" y2="16" />
+              </svg>
+              <span>Order Details</span>
+            </button>
 
-        {/* Status Badge */}
-        <div className="status-badge" style={{ borderColor: currentStatus.color }}>
-          <div className="status-badge-icon">{currentStatus.emoji}</div>
-          <div className="status-badge-text">
-            <div className="status-badge-title" style={{ color: currentStatus.color }}>
-              {currentStatus.label}
-            </div>
-            <div className="status-badge-msg">{currentStatus.message}</div>
-          </div>
-        </div>
-
-        {/* Step Tracker */}
-        <div className="status-tracker">
-          {STATUS_STEPS.map((step, idx) => {
-            const isDone = idx < activeStep;
-            const isActive = idx === activeStep;
-            return (
-              <React.Fragment key={step.code}>
-                <div className={`status-step ${isActive ? "active" : ""} ${isDone ? "done" : ""}`}>
-                  <div className="step-circle" style={
-                    isDone
-                      ? { background: step.color, borderColor: step.color }
-                      : isActive
-                        ? { background: "#fff", borderColor: step.color, boxShadow: `0 0 0 4px ${step.color}33` }
-                        : {}
-                  }>
-                    {isDone ? (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    ) : (
-                      <span style={{ color: isActive ? step.color : "#ccc", fontSize: "18px" }}>{step.emoji}</span>
-                    )}
-                  </div>
-                  <div className="step-label" style={{ color: isActive ? step.color : isDone ? "#888" : "#bbb" }}>
-                    {step.label}
-                  </div>
+            {/* Status Badge */}
+            <div className="status-badge" style={{ borderColor: currentStatus.color }}>
+              <div className="status-badge-icon">{currentStatus.emoji}</div>
+              <div className="status-badge-text">
+                <div className="status-badge-title" style={{ color: currentStatus.color }}>
+                  {currentStatus.label}
                 </div>
-                {idx < STATUS_STEPS.length - 1 && (
-                  <div className={`step-connector ${idx < activeStep ? "filled" : ""}`} />
-                )}
-              </React.Fragment>
-            );
-          })}
-        </div>
+                <div className="status-badge-msg">{currentStatus.message}</div>
+              </div>
+            </div>
 
-        <div className="confirmation-subtitle">Thank you for ordering</div>
+            {/* Step Tracker */}
+            <div className="status-tracker">
+              {STATUS_STEPS.map((step, idx) => {
+                const isDone = idx < activeStep;
+                const isActive = idx === activeStep;
+                return (
+                  <React.Fragment key={step.code}>
+                    <div className={`status-step ${isActive ? "active" : ""} ${isDone ? "done" : ""}`}>
+                      <div className="step-circle" style={
+                        isDone
+                          ? { background: step.color, borderColor: step.color }
+                          : isActive
+                            ? { background: "#fff", borderColor: step.color, boxShadow: `0 0 0 4px ${step.color}33` }
+                            : {}
+                      }>
+                        {isDone ? (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        ) : (
+                          <span style={{ color: isActive ? step.color : "#ccc", fontSize: "18px" }}>{step.emoji}</span>
+                        )}
+                      </div>
+                      <div className="step-label" style={{ color: isActive ? step.color : isDone ? "#888" : "#bbb" }}>
+                        {step.label}
+                      </div>
+                    </div>
+                    {idx < STATUS_STEPS.length - 1 && (
+                      <div className={`step-connector ${idx < activeStep ? "filled" : ""}`} />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        <div className="confirmation-subtitle">
+          {isValidStatus ? "Thank you for ordering" : "Please confirm the order"}
+        </div>
         <button className="return-order-btn" onClick={goToOrderPage}>
           Return to Order
         </button>

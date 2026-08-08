@@ -374,7 +374,7 @@ body {
 
 .dish-desc {
   display: -webkit-box;
-  display: box;
+  display: flex;
   line-clamp: 2;
   /* Standard property */
   -webkit-line-clamp: 2;
