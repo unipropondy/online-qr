@@ -877,7 +877,7 @@ function App() {
 
     const eligibleAmount = cart.reduce(
       (sum, item) =>
-        item.IsServiceCharge
+        (Number(item.isServiceCharge || 0) === 1 || item.IsServiceCharge)
           ? sum +
           Number(item.Price || item.price || 0) *
           Number(item.qty || 1)
@@ -1678,7 +1678,7 @@ function App() {
   // Service Charge Calculation — applied to full subtotal
   const serviceChargeEligibleTotal = cart.reduce(
     (sum, item) =>
-      Number(item.isServiceCharge || 0) === 1
+      (Number(item.isServiceCharge || 0) === 1 || item.IsServiceCharge)
         ? sum +
         Number(item.Price || item.price || 0) *
         Number(item.qty || 1)
