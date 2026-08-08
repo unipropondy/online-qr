@@ -283,7 +283,7 @@ export default function LoginPage({ onLoginSuccess }) {
           <div className="login-logo-ring">
             <img src="https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=150&h=150" alt="Restaurant Logo" />
           </div>
-          <div className="login-brand-name">Smart POS</div>
+          <div className="login-brand-name">Unipro POS</div>
         </div>
 
         {/* Tab Switcher */}

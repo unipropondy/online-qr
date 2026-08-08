@@ -228,9 +228,13 @@ body {
 .nav-scroll {
   display: flex;
   overflow-x: auto;
+  overflow-y: hidden;
   padding: 10px 20px;
   gap: 12px;
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  flex-shrink: 0;
 }
 
 .nav-scroll::-webkit-scrollbar {
@@ -302,12 +306,16 @@ body {
 .dish-list {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   align-content: start;
   gap: 16px;
   padding: 16px;
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  min-height: 0;
 }
 
 .dish-list::-webkit-scrollbar {
@@ -520,6 +528,8 @@ body {
   overflow-x: hidden;
   min-height: 0;
   padding: 0 12px;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 
 .cart-item {
