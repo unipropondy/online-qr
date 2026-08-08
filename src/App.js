@@ -1741,7 +1741,8 @@ function App() {
         element={
 
           // <div className="pos-app">
-          <PullToRefresh onRefresh={handleRefresh} backgroundColor={themeColor} pullingContent={""}>
+          // Pull-to-refresh removed – it was intercepting touch events and blocking smooth scrolling.
+          // Native browser overscroll handles page refresh (or use a refresh button)
             <div className="pos-app">
               {isCartLoading && (
                 <div className="modal-overlay" style={{ zIndex: 99999, flexDirection: 'column', cursor: 'wait' }}>
@@ -2954,7 +2955,6 @@ function App() {
                 </div>
               )}
             </div>
-          </PullToRefresh>
         }
       />
 
