@@ -875,46 +875,49 @@ function App() {
 
     //NEW PROCESS---------------------------
 
-    const eligibleAmount = cart.reduce(
-      (sum, item) =>
-        (Number(item.isServiceCharge || 0) === 1 || item.IsServiceCharge)
-          ? sum +
-          Number(item.Price || item.price || 0) *
-          Number(item.qty || 1)
-          : sum,
-      0
-    );
+    // const eligibleAmount = cart.reduce(
+    //   (sum, item) =>
+    //     Number(item.isServiceCharge || 0) === 1
+    //       ? sum +
+    //       Number(item.Price || item.price || 0) *
+    //       Number(item.qty || 1)
+    //       : sum,
+    //   0
+    // );
 
     // Service Charge
-    const serviceCharge =
-      eligibleAmount * (serviceChargePercent / 100);
+    // const serviceCharge =
+    //   eligibleAmount * (serviceChargePercent / 100);
 
     // Cart Subtotal
-    const subTotal = cart.reduce(
-      (sum, item) =>
-        sum +
-        Number(item.Price || item.price || 0) *
-        Number(item.qty || 1),
-      0
-    );
+    // const subTotal = cart.reduce(
+    //   (sum, item) =>
+    //     sum +
+    //     Number(item.Price || item.price || 0) *
+    //     Number(item.qty || 1),
+    //   0
+    // );
 
-    const promoAmount = Number(localStorage.getItem("promoAmount") || 0);
+    // const promoAmount = Number(localStorage.getItem("promoAmount") || 0);
 
     // GST Calculation
-    const beforeGST = subTotal + serviceCharge;
+    // const beforeGST = subTotal + serviceCharge;
 
-    const gstAmount =
-      beforeGST * (gstPercent / 100);
+    // const gstAmount =
+    //   beforeGST * (gstPercent / 100);
 
     // Final Total
-    const grandTotal = subTotal + serviceCharge + gstAmount;
+    // const grandTotal = subTotal + serviceCharge + gstAmount;
 
-    const totalAmount = (
-      grandTotal - promoAmount
-    ).toFixed(2);
+    // const totalAmount = (
+    //   grandTotal - promoAmount
+    // ).toFixed(2);
+    const paymentAmount = totalAmount;
+
+    console.log("Payment Amount:", paymentAmount);
 
     console.log("Subtotal:", subTotal);
-    console.log("Eligible:", eligibleAmount);
+    // console.log("Eligible:", eligibleAmount);
     console.log("Service Charge:", serviceCharge);
     console.log("Grand Total:", totalAmount);
 
@@ -1678,7 +1681,7 @@ function App() {
   // Service Charge Calculation — applied to full subtotal
   const serviceChargeEligibleTotal = cart.reduce(
     (sum, item) =>
-      (Number(item.isServiceCharge || 0) === 1 || item.IsServiceCharge)
+      Number(item.isServiceCharge || 0) === 1
         ? sum +
         Number(item.Price || item.price || 0) *
         Number(item.qty || 1)
@@ -1794,7 +1797,7 @@ function App() {
                 <div className="header-center">
                   <span className="header-title">Menu</span>
                   {tableNo && (
-                    <span className="header-table-badge">TW {tableNo}</span>
+                    <span className="header-table-badge"> {tableNo}</span>
                   )}
                 </div>
               )}
