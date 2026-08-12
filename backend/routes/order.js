@@ -1571,7 +1571,7 @@ router.post("/complete-online-payment", async (req, res) => {
     const cleanTableId = tableId ? String(tableId).replace(/^\{|\}$/g, "").trim() : null;
     const amount = parseFloat(totalAmount) || 0;
     const pMethod = (paymentMethod || "ONLINE").toUpperCase();
-    let settlementId = crypto.randomUUID();
+    const settlementId = crypto.randomUUID();
 
     // Generate and queue KOT for newly added items (StatusCode = 1) before they become 2 (Paid)
     try {
