@@ -1752,7 +1752,6 @@ router.post("/complete-online-payment", async (req, res) => {
         .input("subTotal", sql.Money, subTotal || amount)
         .input("sysAmount", sql.Money, amount)
         .input("mobile", sql.NVarChar(50), header?.MobileNo || null)
-        .input("payMode", sql.NVarChar(50), pMethod)
         .input("userId", sql.UniqueIdentifier, DEFAULT_GUID)
         .query(`
                   UPDATE SettlementHeader
@@ -1772,19 +1771,18 @@ router.post("/complete-online-payment", async (req, res) => {
         .input("subTotal", sql.Money, subTotal || amount)
         .input("sysAmount", sql.Money, amount)
         .input("mobile", sql.NVarChar(50), header?.MobileNo || null)
-        .input("payMode", sql.NVarChar(50), pMethod)
         .input("userId", sql.UniqueIdentifier, DEFAULT_GUID)
         .query(`
                   INSERT INTO SettlementHeader (
                       SettlementID, LastSettlementDate, BillNo, OrderType, TableNo, Section,
                       BusinessUnitId, SysAmount, ManualAmount, CreatedOn,
                       SubTotal, TotalTax, DiscountAmount, MobileNo, IsCancelled,
-                      CreatedBy
+                      CreatedBy, start_date
                   ) VALUES (
                       @sid, GETDATE(), @oid, 'DINE-IN', @tableNo, @section,
                       @bizId, @sysAmount, @sysAmount, GETDATE(),
                       @subTotal, 0, 0, @mobile, 0,
-                      @userId
+                      @userId,(SELECT TOP 1 StartDate FROM DateEntry ORDER BY CreatedDate DESC)
                   )
               `);
       console.log(`✅ [PAYMENT] SettlementHeader inserted: ${settlementId}`);
@@ -1811,10 +1809,10 @@ router.post("/complete-online-payment", async (req, res) => {
         .query(`
                     INSERT INTO SettlementItemDetail (
                         SettlementID, DishId, DishName, Qty, Price, Status, OrderDateTime,
-                        CategoryId, CategoryName, SubCategoryName
+                        CategoryId, CategoryName, SubCategoryName,start_date
                     ) VALUES (
                         @sid, @dishId, @dishName, @qty, @price, 'NORMAL', GETDATE(),
-                        @catId, @catName, @groupName
+                        @catId, @catName, @groupName,(SELECT TOP 1 StartDate FROM DateEntry ORDER BY CreatedDate DESC)
                     )
                 `);
     }
