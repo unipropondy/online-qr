@@ -154,7 +154,7 @@ function SettlementSuccess() {
             Order No: <span>{orderSuffix}</span>
           </div>
         )}
-        
+
         {tableNo && (
           <div style={{
             fontSize: "clamp(22px, 2vw, 32px)",
@@ -163,7 +163,7 @@ function SettlementSuccess() {
             marginTop: isValidStatus ? "-5px" : "15px",
             marginBottom: "15px"
           }}>
-            Table No: <span style={{ color: "var(--theme-color)", fontSize: "1.3em", fontWeight: "900" }}>{tableNo}</span>
+            Takeaway: <span style={{ color: "var(--theme-color)", fontSize: "1.3em", fontWeight: "900" }}>{tableNo}</span>
           </div>
         )}
 

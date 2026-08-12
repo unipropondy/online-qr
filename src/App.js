@@ -2017,7 +2017,7 @@ function App() {
                       Go to Home Page
                     </button>
                     <span className="cart-table-no">
-                      Table No:{tableNo || "1"}
+                      Takeaway:{tableNo || "1"}
                     </span>
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                       <button
