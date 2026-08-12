@@ -1752,6 +1752,7 @@ router.post("/complete-online-payment", async (req, res) => {
         .input("subTotal", sql.Money, subTotal || amount)
         .input("sysAmount", sql.Money, amount)
         .input("mobile", sql.NVarChar(50), header?.MobileNo || null)
+        .input("payMode", sql.NVarChar(50), pMethod)
         .input("userId", sql.UniqueIdentifier, DEFAULT_GUID)
         .query(`
                   UPDATE SettlementHeader
@@ -1771,6 +1772,7 @@ router.post("/complete-online-payment", async (req, res) => {
         .input("subTotal", sql.Money, subTotal || amount)
         .input("sysAmount", sql.Money, amount)
         .input("mobile", sql.NVarChar(50), header?.MobileNo || null)
+        .input("payMode", sql.NVarChar(50), pMethod)
         .input("userId", sql.UniqueIdentifier, DEFAULT_GUID)
         .query(`
                   INSERT INTO SettlementHeader (
