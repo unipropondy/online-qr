@@ -62,6 +62,22 @@ router.post("/signup", async (req, res) => {
 
     const pool = await poolPromise;
     let promoAmount = 0;
+
+    // Check if phone number already exists
+    const phoneResult = await pool.request()
+      .input("phone", sql.NVarChar, phone)
+      .query(`
+        SELECT TOP 1 MemberId
+        FROM MemberMaster
+        WHERE Phone = @phone
+      `);
+
+    if (phoneResult.recordset.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: "This phone number is already registered. Please use a different phone number."
+      });
+    }
     // Promo Code Validation
     if (req.body.promoCode && req.body.promoCode.trim() !== "") {
 
