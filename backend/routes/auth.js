@@ -2,6 +2,51 @@ const express = require("express");
 const router = express.Router();
 const { poolPromise, sql } = require("../config/db");
 
+
+// ================= PROMO IMAGE API =================
+
+router.get("/promo-image", async (req, res) => {
+  try {
+    const pool = await poolPromise;
+
+    const result = await pool.request().query(`
+      SELECT 
+        PromoCode,
+        PromoName,
+        DiscountType,
+        DiscountValue,
+        PromoImage
+      FROM PromoCodeMaster
+      WHERE IsActive = 1
+        AND PromoImage IS NOT NULL
+      ORDER BY CreatedDate DESC
+    `);
+
+    if (result.recordset.length === 0) {
+      return res.json({ success: true, promoImages: [] });
+    }
+
+    const promoImages = result.recordset.map((promo) => ({
+      PromoCode: promo.PromoCode,
+      PromoName: promo.PromoName,
+      DiscountType: promo.DiscountType,
+      DiscountValue: promo.DiscountValue,
+      PromoImage: promo.PromoImage
+        ? `data:image/jpeg;base64,${promo.PromoImage.toString("base64")}`
+        : null,
+    })).filter((p) => p.PromoImage !== null);
+
+    console.log(`PROMO IMAGE API: returning ${promoImages.length} images`);
+
+    res.json({ success: true, promoImages });
+
+  } catch (err) {
+    console.error("PROMO IMAGE ERROR:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
 // ✅ LOGIN API
 router.post("/login", async (req, res) => {
   try {
