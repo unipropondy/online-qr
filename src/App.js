@@ -1823,21 +1823,23 @@ function App() {
                 </button>
 
                 {/* Order Status icon */}
-                <button
-                  className="header-icon-btn"
-                  onClick={() =>
-                    window.location.href = `/settlement-success?tableId=${tableId}&table=${tableNo}&orderId=${currentOrderId}`
-                  }
-                  title="Order Status"
-                  disabled={!currentOrderId}
-                  style={{ opacity: currentOrderId ? 1 : 0.5, cursor: currentOrderId ? "pointer" : "not-allowed" }}
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={themeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                    <line x1="3" y1="9" x2="21" y2="9" />
-                    <line x1="9" y1="21" x2="9" y2="9" />
-                  </svg>
-                </button>
+                {cart.length > 0 && (
+                  <button
+                    className="header-icon-btn"
+                    onClick={() =>
+                      window.location.href = `/settlement-success?tableId=${tableId}&table=${tableNo}&orderId=${currentOrderId}`
+                    }
+                    title="Order Status"
+                    disabled={!currentOrderId}
+                    style={{ opacity: currentOrderId ? 1 : 0.5, cursor: currentOrderId ? "pointer" : "not-allowed" }}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={themeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                      <line x1="3" y1="9" x2="21" y2="9" />
+                      <line x1="9" y1="21" x2="9" y2="9" />
+                    </svg>
+                  </button>
+                )}
 
                 {/* Settings icon */}
                 <button
