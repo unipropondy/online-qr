@@ -230,6 +230,19 @@ export default function LoginPage({ onLoginSuccess }) {
       setError("Username and password are required.");
       return;
     }
+    if (suUsername.trim().length > 18) {
+      setError("Username must be maximum 18 characters.");
+      return;
+    }
+    if (suPassword.length > 10) {
+      setError("Password must be maximum 10 characters.");
+      return;
+    }
+
+    if (suConfirm.length > 10) {
+      setError("Confirm Password must be maximum 10 characters.");
+      return;
+    }
     if (!suPhone.trim()) {
       setError("Phone number is required.");
       return;
@@ -520,7 +533,8 @@ export default function LoginPage({ onLoginSuccess }) {
                     type="text"
                     placeholder="Choose a username"
                     value={suUsername}
-                    onChange={(e) => setSuUsername(e.target.value)}
+                    onChange={(e) => setSuUsername(e.target.value.slice(0, 18))}
+                    maxLength={18}
                     autoComplete="username"
                   />
                 </div>
@@ -552,7 +566,8 @@ export default function LoginPage({ onLoginSuccess }) {
                     type={showPass ? "text" : "password"}
                     placeholder="Create a password"
                     value={suPassword}
-                    onChange={(e) => setSuPassword(e.target.value)}
+                    onChange={(e) => setSuPassword(e.target.value.slice(0, 10))}
+                    maxLength={10}
                     autoComplete="new-password"
                   />
                   <button
@@ -576,7 +591,8 @@ export default function LoginPage({ onLoginSuccess }) {
                     type={showConfirmPass ? "text" : "password"}
                     placeholder="Re-enter your password"
                     value={suConfirm}
-                    onChange={(e) => setSuConfirm(e.target.value)}
+                    onChange={(e) => setSuConfirm(e.target.value.slice(0, 10))}
+                    maxLength={10}
                     autoComplete="new-password"
                   />
                   <button
