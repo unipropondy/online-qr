@@ -234,13 +234,13 @@ export default function LoginPage({ onLoginSuccess }) {
       setError("Username must be maximum 18 characters.");
       return;
     }
-    if (suPassword.length > 10) {
-      setError("Password must be maximum 10 characters.");
+    if (suPassword.length > 14) {
+      setError("Password should be between 8 - 14 characters.");
       return;
     }
 
-    if (suConfirm.length > 10) {
-      setError("Confirm Password must be maximum 10 characters.");
+    if (suConfirm.length > 14) {
+      setError("Confirm Password should be between 8 - 14 characters.");
       return;
     }
     if (!suPhone.trim()) {
@@ -251,8 +251,8 @@ export default function LoginPage({ onLoginSuccess }) {
       setError("Passwords do not match.");
       return;
     }
-    if (suPassword.length < 4) {
-      setError("Password must be at least 4 characters.");
+    if (suPassword.length < 8) {
+      setError("Password should be between 8 - 14 characters.");
       return;
     }
     setLoading(true);
@@ -566,8 +566,9 @@ export default function LoginPage({ onLoginSuccess }) {
                     type={showPass ? "text" : "password"}
                     placeholder="Create a password"
                     value={suPassword}
-                    onChange={(e) => setSuPassword(e.target.value.slice(0, 10))}
-                    maxLength={10}
+                    onChange={(e) => setSuPassword(e.target.value.slice(0, 14))}
+                    maxLength={14}
+                    // minLength={8}
                     autoComplete="new-password"
                   />
                   <button
@@ -591,8 +592,9 @@ export default function LoginPage({ onLoginSuccess }) {
                     type={showConfirmPass ? "text" : "password"}
                     placeholder="Re-enter your password"
                     value={suConfirm}
-                    onChange={(e) => setSuConfirm(e.target.value.slice(0, 10))}
-                    maxLength={10}
+                    onChange={(e) => setSuConfirm(e.target.value.slice(0, 14))}
+                    maxLength={14}
+                    // minLength={8}
                     autoComplete="new-password"
                   />
                   <button
@@ -670,7 +672,7 @@ export default function LoginPage({ onLoginSuccess }) {
               </div>
               <div className="login-success-title" style={{ color: '#1f2937' }}>Welcome!</div>
               <div className="login-success-sub" style={{ color: '#6b7280', fontSize: '15px', marginBottom: '16px' }}>
-                As a new customer, you can receive a gift at the counter.
+                Check for rewards at the cash counter.
               </div>
               <button
                 className="login-submit-btn"
