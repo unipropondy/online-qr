@@ -1820,6 +1820,34 @@ router.post("/complete-online-payment", async (req, res) => {
     }
     console.log(`✅ [PAYMENT] ${dbItems.length} SettlementItemDetail(s) inserted`);
 
+    // ── STEP 5B: INSERT INTO SETTLEMENT TRAN & TOTAL SALES TABLES ──────────────
+    const receiptCount = dbItems.reduce((sum, item) => sum + (Number(item.Quantity) || 0), 0);
+
+    if (isSettlementExists) {
+      await transaction.request()
+        .input("sid", sql.UniqueIdentifier, settlementId)
+        .query(`
+          DELETE FROM SettlementTranDetail WHERE SettlementID = @sid;
+          DELETE FROM SettlementTotalSales WHERE SettlementID = @sid;
+        `);
+    }
+
+    await transaction.request()
+      .input("SettlementID", sql.UniqueIdentifier, settlementId)
+      .input("PayMode", sql.VarChar(50), pMethod)
+      .input("SysAmount", sql.Money, amount)
+      .input("ManualAmount", sql.Money, amount)
+      .input("AmountDiff", sql.Money, 0)
+      .input("ReceiptCount", sql.Numeric(18, 0), receiptCount)
+      .query(`
+        INSERT INTO SettlementTranDetail (SettlementID, PayMode, CashIn, CashOut)
+        VALUES (@SettlementID, @PayMode, @SysAmount, 0);
+
+        INSERT INTO SettlementTotalSales (SettlementID, PayMode, SysAmount, ManualAmount, AmountDiff, ReceiptCount)
+        VALUES (@SettlementID, @PayMode, @SysAmount, @ManualAmount, @AmountDiff, @ReceiptCount);
+      `);
+    console.log(`✅ [PAYMENT] Inserted into SettlementTranDetail and SettlementTotalSales for settlement ${settlementId}`);
+
     // ── STEP 6: UPSERT PAYMENT DETAIL ────────────────────────────────────────
     const paymodeRes = await transaction.request()
       .input("payMode", sql.NVarChar(50), 'Online')
@@ -1985,23 +2013,34 @@ router.post("/assign-takeaway-table", async (req, res) => {
   try {
     const pool = await poolPromise;
 
-    // Find a free takeaway table (DiningSection = 4, Status = 0 = available)
+    // Find a free takeaway table (DiningSection = 4)
+    // A table is occupied/paid if Status > 0 OR if there is an open order (isOrderClosed = 0) OR an active CurrentOrderId.
     const tableRes = await pool.request().query(`
-      SELECT TOP 1 TableId, TableNumber
-      FROM TableMaster
-      WHERE DiningSection = 4
-        AND (Status = 0 OR Status IS NULL)
-        AND (CurrentOrderId IS NULL OR CurrentOrderId = '' OR CurrentOrderId = 'NEW')
-      ORDER BY TableNumber ASC
+      SELECT TOP 1 tm.TableId, tm.TableNumber
+      FROM TableMaster tm
+      WHERE tm.DiningSection = 4
+        AND (tm.Status = 0 OR tm.Status IS NULL)
+        AND NOT EXISTS (
+          SELECT 1 
+          FROM RestaurantOrderCur roc 
+          WHERE LTRIM(RTRIM(roc.Tableno)) = LTRIM(RTRIM(tm.TableNumber))
+            AND (roc.isOrderClosed = 0 OR roc.isOrderClosed IS NULL)
+        )
+      ORDER BY 
+        TRY_CAST(SUBSTRING(tm.TableNumber, 2, 10) AS INT) ASC,
+        tm.TableNumber ASC
     `);
 
     if (tableRes.recordset.length === 0) {
-      // Fallback: return any takeaway table even if occupied
+      // Fallback: return the takeaway table with the least active order or first takeaway table
       const fallbackRes = await pool.request().query(`
-        SELECT TOP 1 TableId, TableNumber, CurrentOrderId
-        FROM TableMaster
-        WHERE DiningSection = 4
-        ORDER BY TableNumber ASC
+        SELECT TOP 1 tm.TableId, tm.TableNumber, tm.CurrentOrderId
+        FROM TableMaster tm
+        WHERE tm.DiningSection = 4
+        ORDER BY 
+          tm.Status ASC,
+          TRY_CAST(SUBSTRING(tm.TableNumber, 2, 10) AS INT) ASC,
+          tm.TableNumber ASC
       `);
 
       if (fallbackRes.recordset.length === 0) {
