@@ -904,7 +904,7 @@ router.post("/cancel", async (req, res) => {
         .input("oid", sql.NVarChar(50), orderId)
         .input("tableNo", sql.NVarChar(50), header.Tableno)
         .input("section", sql.NVarChar(100), header.DiningSection)
-        .input("userId", sql.UniqueIdentifier, toGuidOrNull(userId))
+        .input("userId", sql.UniqueIdentifier, toGuidOrNull(userId) || DEFAULT_GUID)
         .input("userName", sql.NVarChar(255), userName || "User")
         .input("reason", sql.NVarChar(500), reason || "Manual Cancellation")
         .input("bizId", sql.UniqueIdentifier, header.BusinessUnitId || DEFAULT_GUID)
@@ -1086,7 +1086,7 @@ router.post("/checkout", async (req, res) => {
 router.post("/remove-item", async (req, res) => {
   try {
     const { tableId, itemId, qtyToVoid, reason } = req.body;
-    const userId = req.body.userId || DEFAULT_GUID;
+    const userId = toGuidOrNull(req.body.userId) || DEFAULT_GUID;
     const pool = await poolPromise;
     // const transaction = new sql.Transaction(pool);
     // await transaction.begin();
@@ -1553,7 +1553,8 @@ router.post("/complete-online-payment", async (req, res) => {
   const transaction = new sql.Transaction(pool);
 
   try {
-    const { orderId, tableNo, tableId, totalAmount, cart, paymentMethod } = req.body;
+    const { orderId, tableNo, tableId, totalAmount, cart, paymentMethod, userId } = req.body;
+    const finalUserId = toGuidOrNull(userId) || DEFAULT_GUID;
 
     console.log("🔍 [PAYMENT] complete-online-payment called", {
       orderId,
@@ -1623,7 +1624,7 @@ router.post("/complete-online-payment", async (req, res) => {
         .input("orderNo", sql.NVarChar(50), orderId)
         .input("tableNo", sql.VarChar(20), tableNumber)
         .input("bizId", sql.UniqueIdentifier, businessUnitId)
-        .input("userId", sql.UniqueIdentifier, DEFAULT_GUID)
+        .input("userId", sql.UniqueIdentifier, finalUserId)
         .query(`
                     INSERT INTO RestaurantOrderCur (
                         OrderId, OrderNumber, OrderDateTime, Tableno, StatusCode, 
@@ -1691,7 +1692,7 @@ router.post("/complete-online-payment", async (req, res) => {
     //       .input("price", sql.Decimal(18, 2), price)
     //       .input("bizId", sql.UniqueIdentifier, businessUnitId)
     //       .input("orderNo", sql.NVarChar(50), orderId)
-    //       .input("userId", sql.UniqueIdentifier, DEFAULT_GUID)
+    //       .input("userId", sql.UniqueIdentifier, finalUserId)
     //       .query(`
     //                     INSERT INTO RestaurantOrderDetailCur (
     //                         OrderDetailId, OrderId, DishId, DishName, Quantity, PricePerUnit,
@@ -1753,7 +1754,7 @@ router.post("/complete-online-payment", async (req, res) => {
         .input("sysAmount", sql.Money, amount)
         .input("mobile", sql.NVarChar(50), header?.MobileNo || null)
         .input("payMode", sql.NVarChar(50), pMethod)
-        .input("userId", sql.UniqueIdentifier, DEFAULT_GUID)
+        .input("userId", sql.UniqueIdentifier, finalUserId)
         .query(`
                   UPDATE SettlementHeader
                   SET LastSettlementDate = GETDATE(), TableNo = @tableNo, Section = @section,
@@ -1773,7 +1774,7 @@ router.post("/complete-online-payment", async (req, res) => {
         .input("sysAmount", sql.Money, amount)
         .input("mobile", sql.NVarChar(50), header?.MobileNo || null)
         .input("payMode", sql.NVarChar(50), pMethod)
-        .input("userId", sql.UniqueIdentifier, DEFAULT_GUID)
+        .input("userId", sql.UniqueIdentifier, finalUserId)
         .query(`
                   INSERT INTO SettlementHeader (
                       SettlementID, LastSettlementDate, BillNo, OrderType, TableNo, Section,
@@ -1863,7 +1864,7 @@ router.post("/complete-online-payment", async (req, res) => {
         .input("orderId", sql.UniqueIdentifier, guidOrderId)
         .input("paymode", sql.Int, paymodePosition)
         .input("amount", sql.Decimal(18, 2), amount)
-        .input("userId", sql.UniqueIdentifier, DEFAULT_GUID)
+        .input("userId", sql.UniqueIdentifier, finalUserId)
         .query(`
                   UPDATE PaymentDetailCur
                   SET PaymentCollectedOn = GETDATE(), Paymode = @paymode, Amount = @amount, ModifiedBy = @userId, ModifiedOn = GETDATE()
@@ -1878,7 +1879,7 @@ router.post("/complete-online-payment", async (req, res) => {
         .input("paymode", sql.Int, paymodePosition)
         .input("amount", sql.Decimal(18, 2), amount)
         .input("bizId", sql.UniqueIdentifier, businessUnitId)
-        .input("userId", sql.UniqueIdentifier, DEFAULT_GUID)
+        .input("userId", sql.UniqueIdentifier, finalUserId)
         .query(`
                   INSERT INTO PaymentDetailCur (
                       PaymentId, RestaurantBillId, OrderId, BilledFor, 
@@ -2081,6 +2082,49 @@ router.post("/assign-takeaway-table", async (req, res) => {
   } catch (err) {
     console.error("❌ [assign-takeaway-table] ERROR:", err.message);
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.get("/my-orders/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const pool = await poolPromise;
+
+    const result = await pool.request()
+      .input("userId", sql.UniqueIdentifier, userId)
+      .query(`
+        SELECT
+          sid.SettlementID,
+          sid.DishId,
+          sid.DishName,
+          sid.Qty,
+          sid.Price,
+          sid.Status,
+          sid.OrderDateTime,
+          sh.BillNo AS OrderNumber,
+          sh.LastSettlementDate,
+          sh.OrderType,
+          sh.TableNo,
+          sh.SysAmount,
+          sh.CreatedBy AS UserId
+        FROM SettlementItemDetail sid
+        INNER JOIN SettlementHeader sh
+          ON sh.SettlementID = sid.SettlementID
+        WHERE sh.CreatedBy = @userId
+        ORDER BY sh.LastSettlementDate DESC, sid.OrderDateTime DESC
+      `);
+
+    res.json({
+      success: true,
+      orders: result.recordset
+    });
+
+  } catch (err) {
+    console.error("MY ORDERS ERROR:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
   }
 });
 

@@ -194,6 +194,7 @@ export default function LoginPage({ onLoginSuccess }) {
 
         sessionStorage.setItem("isLoggedIn", "true");
         localStorage.setItem("qr_pos_user", JSON.stringify(data.user));
+        localStorage.setItem("takeawayUserId", data.user.UserId);
 
         if (data.user?.Promocode) {
           localStorage.setItem("promoCode", data.user.Promocode);
@@ -272,6 +273,7 @@ export default function LoginPage({ onLoginSuccess }) {
       console.log("LOGIN RESPONSE:", data);
       if (data.success) {
         localStorage.setItem("qr_pos_user", JSON.stringify(data.user));
+        localStorage.setItem("takeawayUserId", data.user.UserId);
 
         try {
           await assignTakeawayTable();

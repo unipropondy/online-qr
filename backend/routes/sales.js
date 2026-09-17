@@ -704,7 +704,7 @@ router.post("/save", async (req, res) => {
     const {
       totalAmount, paymentMethod, items, subTotal, taxAmount,
       discountAmount, discountType, roundOff, orderId, orderType, tableNo, section, memberId, cashierId, tableId,
-      serverId, serverName, isSplit
+      serverId, serverName, isSplit, userId
     } = req.body;
 
     const validationError = validateSalePayload({ totalAmount, paymentMethod, items });
@@ -824,7 +824,7 @@ router.post("/save", async (req, res) => {
       .input("BusinessUnitId", sql.UniqueIdentifier, sanitizeGuid(businessUnitId))
       .input("SysAmount", sql.Money, totalAmount || 0)
       .input("ManualAmount", sql.Money, totalAmount || 0)
-      .input("CreatedBy", sql.UniqueIdentifier, sanitizeGuid(cashierId))
+      .input("CreatedBy", sql.UniqueIdentifier, sanitizeGuid(userId || cashierId))
       .input("CreatedOn", sql.DateTime, now)
       .input("SER_NAME", sql.NVarChar(255), req.body.serverName || null)
       .input("MobileNo", sql.NVarChar(50), req.body.mobileNo || req.body.MobileNo || null)
@@ -1011,9 +1011,9 @@ router.post("/save", async (req, res) => {
             .input("ReferenceNumber", sql.VarChar(100), null)
             .input("Remarks", sql.VarChar(500), paymentMethod || "")
             .input("BusinessUnitId", sql.UniqueIdentifier, sanitizeGuid(businessUnitId))
-            .input("CreatedBy", sql.UniqueIdentifier, sanitizeGuid(cashierId))
+            .input("CreatedBy", sql.UniqueIdentifier, sanitizeGuid(userId || cashierId))
             .input("CreatedOn", sql.DateTime, new Date())
-            .input("ModifiedBy", sql.UniqueIdentifier, sanitizeGuid(cashierId))
+            .input("ModifiedBy", sql.UniqueIdentifier, sanitizeGuid(userId || cashierId))
             .input("ModifiedOn", sql.DateTime, new Date())
             .query(`
               -- 🛡️ ATOMIC SYNC: Populating both tables in one go for report integrity
@@ -1301,7 +1301,7 @@ router.post("/save", async (req, res) => {
             .input("TableNo", sql.NVarChar(50), tableNo || null)
             .input("OrderId", sql.NVarChar(50), displayOrderId)
             .input("Section", sql.NVarChar(100), section || null)
-            .input("CreatedBy", sql.UniqueIdentifier, sanitizeGuid(cashierId))
+            .input("CreatedBy", sql.UniqueIdentifier, sanitizeGuid(userId || cashierId))
             .query(`
               INSERT INTO servermaster (SER_ID, SER_NAME, TableNo, OrderId, Section, CreatedBy, CreatedDate, ModifiedBy, ModifiedDate)
               VALUES (@SER_ID, @SER_NAME, @TableNo, @OrderId, @Section, @CreatedBy, GETDATE(), @CreatedBy, GETDATE())

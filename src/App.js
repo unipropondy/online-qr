@@ -73,6 +73,36 @@ function App() {
   const THEME_COLOR_OPTIONS = ["#f97316", "#3b82f6", "#10b981", "#8b5cf6", "#ef4444", "#ec4899"];
   const [themeColor, setThemeColor] = useState(() => localStorage.getItem("themeColor") || DEFAULT_THEME_COLOR);
   const [tempThemeColor, setTempThemeColor] = useState(() => localStorage.getItem("themeColor") || DEFAULT_THEME_COLOR);
+  const [myOrders, setMyOrders] = useState([]);
+  const [showMyOrders, setShowMyOrders] = useState(false);
+  const handleMyOrders = async () => {
+    try {
+      const userId = localStorage.getItem("takeawayUserId");
+
+      if (!userId) {
+        alert("User not found");
+        return;
+      }
+
+      const response = await fetch(
+        `${API}/order/my-orders/${userId}`
+      );
+
+      const data = await response.json();
+
+      if (data.success) {
+        console.log("My Orders:", data.orders);
+
+        setMyOrders(data.orders);
+        setShowMyOrders(true);
+      } else {
+        alert("Unable to load orders");
+      }
+    } catch (error) {
+      console.error("My Orders Error:", error);
+      alert("Failed to load orders");
+    }
+  };
 
   const hexToRgba = (hex, alpha) => {
     const normalizedHex = hex.replace('#', '');
@@ -1066,7 +1096,7 @@ function App() {
 
         orderId: currentOrderId,
 
-        userId: "00000000-0000-0000-0000-000000000000",
+        userId: localStorage.getItem("takeawayUserId"),
 
         items: cart.map((item) => ({
 
@@ -1256,7 +1286,7 @@ function App() {
 
         orderId: currentOrderId,
 
-        userId: "00000000-0000-0000-0000-000000000000",
+        userId: localStorage.getItem("takeawayUserId"),
 
         items: newItems.map((item) => ({
 
@@ -1747,6 +1777,47 @@ function App() {
           // Pull-to-refresh removed – it was intercepting touch events and blocking smooth scrolling.
           // Native browser overscroll handles page refresh (or use a refresh button)
           <div className="pos-app">
+            {showMyOrders && (
+              <div className="my-orders-overlay">
+                <div className="my-orders-modal">
+
+                  <div className="my-orders-header">
+                    <h2>My Orders</h2>
+
+                    <button
+                      onClick={() => setShowMyOrders(false)}
+                      className="my-orders-close"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="my-orders-list">
+                    {myOrders.length === 0 ? (
+                      <p>No orders found.</p>
+                    ) : (
+                      myOrders.map((order, index) => (
+                        <div className="my-order-card" key={index}>
+                          <div>
+                            <strong>
+                              Order #{order.OrderNumber}
+                            </strong>
+                            <p>{order.DishName}</p>
+                          </div>
+
+                          <div>
+                            <span>Qty: {order.Qty}</span>
+                            <br />
+                            <strong>${order.Price}</strong>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                </div>
+              </div>
+            )}
             {isCartLoading && (
               <div className="modal-overlay" style={{ zIndex: 99999, flexDirection: 'column', cursor: 'wait' }}>
                 <div style={{ width: '50px', height: '50px', border: '5px solid rgba(255,255,255,0.3)', borderTop: `5px solid ${themeColor}`, borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
@@ -1821,6 +1892,33 @@ function App() {
                     <span className="cart-badge">{cart.length}</span>
                   )}
                 </button>
+
+                {/* ⭐ ADD MY ORDERS HERE */}
+                {enableLogin && (
+                  <button
+                    className="header-icon-btn"
+                    onClick={handleMyOrders}
+                    title="My Orders"
+                  >
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke={themeColor}
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M6 2h9l3 3v17H6z" />
+                      <path d="M14 2v4h4" />
+                      <line x1="9" y1="11" x2="15" y2="11" />
+                      <line x1="9" y1="15" x2="15" y2="15" />
+                      <line x1="9" y1="19" x2="13" y2="19" />
+                    </svg>
+                  </button>
+                )}
+
 
                 {/* Order Status icon */}
                 {cart.length > 0 && (
