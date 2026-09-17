@@ -492,14 +492,27 @@ export default function LoginPage({ onLoginSuccess }) {
                   setLoading(true);
                   try {
                     await assignTakeawayTable();
-                    const guestUser = { FullName: "Guest", UserId: "guest", UserName: "guest" };
-                    sessionStorage.setItem("isLoggedIn", "true");
-                    localStorage.setItem("qr_pos_user", JSON.stringify(guestUser));
-                    if (onLoginSuccess) {
-                      onLoginSuccess(guestUser);
-                    } else {
-                      window.location.reload();
-                    }
+                    const guestUser = {
+  FullName: "Guest",
+  UserId: "guest",
+  UserName: "guest"
+};
+
+// Clear previous logged-in customer's data
+localStorage.removeItem("takeawayUserId");
+localStorage.removeItem("promoCode");
+localStorage.removeItem("promoAmount");
+localStorage.removeItem("availableCredit");
+localStorage.removeItem("memberId");
+
+sessionStorage.setItem("isLoggedIn", "true");
+localStorage.setItem("qr_pos_user", JSON.stringify(guestUser));
+
+if (onLoginSuccess) {
+  onLoginSuccess(guestUser);
+} else {
+  window.location.reload();
+}   
                   } catch (tableError) {
                     setError(tableError.message || "Unable to assign a new table.");
                   } finally {

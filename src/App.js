@@ -73,8 +73,12 @@ function App() {
   const THEME_COLOR_OPTIONS = ["#f97316", "#3b82f6", "#10b981", "#8b5cf6", "#ef4444", "#ec4899"];
   const [themeColor, setThemeColor] = useState(() => localStorage.getItem("themeColor") || DEFAULT_THEME_COLOR);
   const [tempThemeColor, setTempThemeColor] = useState(() => localStorage.getItem("themeColor") || DEFAULT_THEME_COLOR);
-  const [myOrders, setMyOrders] = useState([]);
-  const [showMyOrders, setShowMyOrders] = useState(false);
+ const [myOrders, setMyOrders] = useState([]);
+const [showMyOrders, setShowMyOrders] = useState(false);
+
+const [isGuest, setIsGuest] = useState(
+  () => localStorage.getItem("takeawayUserId") === "guest"
+);
   const handleMyOrders = async () => {
     try {
       const userId = localStorage.getItem("takeawayUserId");
@@ -1748,19 +1752,23 @@ function App() {
     return (
       <LoginPage
         onLoginSuccess={(user) => {
-          // Read the tableId/tableNo that LoginPage stored in localStorage
-          const storedTableId = localStorage.getItem("tableId");
-          const storedTableNo = localStorage.getItem("tableNo");
-          const storedOrderId = localStorage.getItem("orderId");
-          if (storedTableId) setTableId(storedTableId);
-          if (storedTableNo) setTableNo(storedTableNo);
-          if (storedOrderId) {
-            setCurrentOrderId(storedOrderId);
-            currentOrderIdRef.current = storedOrderId;
-          }
-          // Flip the login flag — triggers re-render without a page reload
-          setIsLoggedIn(true);
-        }}
+  const storedTableId = localStorage.getItem("tableId");
+  const storedTableNo = localStorage.getItem("tableNo");
+  const storedOrderId = localStorage.getItem("orderId");
+
+  if (storedTableId) setTableId(storedTableId);
+  if (storedTableNo) setTableNo(storedTableNo);
+
+  if (storedOrderId) {
+    setCurrentOrderId(storedOrderId);
+    currentOrderIdRef.current = storedOrderId;
+  }
+
+  // Guest or logged-in customer
+  setIsGuest(user?.UserId === "guest");
+
+  setIsLoggedIn(true);
+}}
       />
     );
   }
@@ -1894,12 +1902,12 @@ function App() {
                 </button>
 
                 {/* ⭐ ADD MY ORDERS HERE */}
-                {enableLogin && (
-                  <button
-                    className="header-icon-btn"
-                    onClick={handleMyOrders}
-                    title="My Orders"
-                  >
+                {enableLogin && isLoggedIn && !isGuest && (
+                    <button
+                      className="header-icon-btn"
+                      onClick={handleMyOrders}
+                      title="My Orders"
+                    >
                     <svg
                       width="20"
                       height="20"
